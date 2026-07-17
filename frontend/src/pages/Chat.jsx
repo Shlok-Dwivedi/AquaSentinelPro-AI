@@ -1,18 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, AlertCircle, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Send, Loader2, Sparkles, AlertCircle, CheckCircle2, Image as ImageIcon, X, Upload } from 'lucide-react';
 
 const Chat = () => {
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Hello! I am AquaSentinel AI. I can analyze your water safety parameters, cross-validate against WHO/BIS specifications, and prepare compliant municipal reports. Try typing: \n\n*\"My water tastes salty. TDS is 750.\"*",
+      content: "Hello! I am AquaSentinel AI. I can analyze your water safety parameters, cross-validate against WHO/BIS specifications, and evaluate image uploads for visible contaminants (algae, plastic, oil, foam). Try uploading an image or entering your water parameters!",
       timeline: null
     }
   ]);
   const [inputValue, setInputValue] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -38,26 +43,71 @@ const Chat = () => {
     return params;
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Drag and drop event handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      setSelectedImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!inputValue.trim() || isLoading) return;
+    if ((!inputValue.trim() && !selectedImage) || isLoading) return;
 
     const userText = inputValue;
+    const imgToSend = selectedImage;
+    const imgPreviewToSend = imagePreview;
+
+    // Clear state inputs
     setInputValue('');
+    setSelectedImage(null);
+    setImagePreview(null);
     setIsLoading(true);
 
     // Append user message
     setMessages(prev => [...prev, {
       id: String(Date.now()),
       role: 'user',
-      content: userText
+      content: userText || `[Uploaded Image: ${imgToSend.name}]`,
+      imagePreview: imgPreviewToSend
     }]);
 
     try {
       const extractedParams = extractParameters(userText);
       const formData = new FormData();
-      formData.append('message', userText);
+      formData.append('message', userText || `Analyzing uploaded image ${imgToSend.name}`);
       
+      if (imgToSend) {
+        formData.append('image', imgToSend);
+      }
+
       // Append any parsed water parameters
       Object.entries(extractedParams).forEach(([key, val]) => {
         formData.append(key, val);
@@ -81,6 +131,9 @@ const Chat = () => {
         "Planning Complete ✓"
       ];
       
+      if (plan.includes("vision_analysis")) {
+        timeline.push("Vision Analysis Complete ✓");
+      }
       if (plan.includes("water_analysis")) {
         timeline.push("Water Analysis Complete ✓");
       }
@@ -114,14 +167,12 @@ const Chat = () => {
 
   // Safe client-side renderer for custom Markdown reports
   const renderFormattedMarkdown = (text) => {
-    // Split by lines and parse
     const lines = text.split('\n');
     let inTable = false;
     let tableRows = [];
     const elements = [];
 
     lines.forEach((line, idx) => {
-      // Skip empty lines in table rendering
       if (line.trim() === '') {
         if (inTable) {
           inTable = false;
@@ -132,7 +183,7 @@ const Chat = () => {
         return;
       }
 
-      // Check checklist timeline output (Skip rendering raw checkmarks since we show them in timeline widget)
+      // Skip checklist timeline outputs
       if (line.endsWith('✓')) {
         return;
       }
@@ -151,10 +202,9 @@ const Chat = () => {
         return;
       }
 
-      // Tables check
+      // Tables
       if (line.startsWith('|')) {
         inTable = true;
-        // Ignore divider row
         if (!line.includes('---')) {
           tableRows.push(line);
         }
@@ -196,7 +246,6 @@ const Chat = () => {
       elements.push(<p key={idx} className="text-sm text-slate-300 leading-relaxed my-1">{parseInlineMarkdown(line)}</p>);
     });
 
-    // Cleanup if table ended at the very last line
     if (inTable && tableRows.length > 0) {
       elements.push(renderTable(tableRows, 999));
     }
@@ -205,13 +254,11 @@ const Chat = () => {
   };
 
   const parseInlineMarkdown = (text) => {
-    // Parse bold tags **
     const parts = text.split(/\*\*([^*]+)\*\*/g);
     return parts.map((part, idx) => {
       if (idx % 2 === 1) {
         return <strong key={idx} className="font-bold text-white">{part}</strong>;
       }
-      // Parse italic tags *
       const subParts = part.split(/\*([^*]+)\*/g);
       return subParts.map((subPart, sIdx) => {
         if (sIdx % 2 === 1) {
@@ -255,10 +302,17 @@ const Chat = () => {
     <div className="space-y-6 max-h-[calc(100vh-4rem)] flex flex-col">
       <div>
         <h2 className="text-3xl font-extrabold text-white tracking-tight">AI Assistant</h2>
-        <p className="text-slate-400 mt-1">Chat with the agent platform. Input water parameters directly or type chemical questions.</p>
+        <p className="text-slate-400 mt-1">Chat with the agent platform. Upload water photos or input parameters to initiate the multi-agent pipeline.</p>
       </div>
 
-      <div className="flex-1 min-h-[500px] h-[650px] bg-slate-900/40 rounded-2xl border border-slate-800 flex flex-col overflow-hidden backdrop-blur-sm shadow-xl">
+      <div 
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`flex-1 min-h-[500px] h-[650px] bg-slate-900/40 rounded-2xl border flex flex-col overflow-hidden backdrop-blur-sm shadow-xl transition-all ${
+          isDragOver ? 'border-aqua-500 bg-slate-900/80 shadow-aqua-500/10' : 'border-slate-800'
+        }`}
+      >
         {/* Messages Log */}
         <div className="flex-1 p-6 space-y-6 overflow-y-auto">
           {messages.map((msg) => (
@@ -269,9 +323,16 @@ const Chat = () => {
                 </div>
               )}
               
-              <div className={`max-w-[75%] space-y-4 ${msg.role === 'user' ? 'bg-aqua-600 text-white rounded-2xl p-4 rounded-tr-none shadow-lg shadow-aqua-650/15' : ''}`}>
+              <div className={`max-w-[75%] space-y-4 ${msg.role === 'user' ? 'bg-aqua-600 text-white rounded-2xl p-4 rounded-tr-none shadow-lg' : ''}`}>
                 {msg.role === 'user' ? (
-                  <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                  <div className="space-y-2 text-sm leading-relaxed">
+                    {msg.imagePreview && (
+                      <div className="rounded-lg overflow-hidden border border-aqua-400/30 max-w-[240px] shadow-sm">
+                        <img src={msg.imagePreview} alt="User Upload" className="max-h-[160px] w-full object-cover" />
+                      </div>
+                    )}
+                    <p className="font-medium">{msg.content}</p>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {/* Execution Timeline (If available) */}
@@ -317,32 +378,70 @@ const Chat = () => {
               </div>
               <div className="max-w-[70%] p-5 rounded-2xl bg-slate-900/60 border border-slate-800 text-slate-400 flex items-center gap-3">
                 <Loader2 size={16} className="animate-spin text-aqua-400" />
-                <span className="text-sm font-semibold tracking-wide animate-pulse">Running Multi-Agent Orchestrator...</span>
+                <span className="text-sm font-semibold tracking-wide animate-pulse">Running Multi-Agent Vision Pipeline...</span>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Interface */}
-        <form onSubmit={handleSend} className="p-4 border-t border-slate-800 bg-slate-900/80">
-          <div className="flex gap-4 items-center">
+        {/* Input Interface with File Preview */}
+        <form onSubmit={handleSend} className="p-4 border-t border-slate-800 bg-slate-900/80 space-y-3">
+          {imagePreview && (
+            <div className="flex items-center gap-3 p-2 bg-slate-950/80 rounded-xl border border-slate-800 max-w-[280px] relative group">
+              <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-800 flex-shrink-0">
+                <img src={imagePreview} alt="Upload Preview" className="w-full h-full object-cover" />
+              </div>
+              <div className="flex-1 min-w-0 pr-6">
+                <p className="text-xs font-semibold text-slate-300 truncate">{selectedImage?.name}</p>
+                <p className="text-[10px] text-slate-500">{(selectedImage?.size / 1024).toFixed(1)} KB</p>
+              </div>
+              <button 
+                type="button" 
+                onClick={removeSelectedImage}
+                className="absolute top-2 right-2 p-1 rounded-md bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
+          <div className="flex gap-3 items-center">
+            {/* Image Upload Input */}
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/png, image/jpeg, image/jpg, image/webp"
+              className="hidden"
+            />
+            <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-3.5 rounded-xl border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white transition-all flex items-center justify-center flex-shrink-0"
+              title="Upload water image"
+              disabled={isLoading}
+            >
+              <ImageIcon size={18} />
+            </button>
+
+            {/* Input Message */}
             <input 
               type="text" 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Type message (e.g. 'My water tastes salty. TDS is 750.')" 
+              placeholder={isDragOver ? "Drop image here..." : "Type message (e.g. 'TDS is 750') or upload water photos..."} 
               className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-aqua-500 focus:ring-1 focus:ring-aqua-500 text-slate-100 placeholder-slate-500 transition-all font-medium"
               disabled={isLoading}
             />
             <button 
               type="submit"
               className={`p-3.5 rounded-xl bg-aqua-600 font-semibold text-white transition-all flex items-center justify-center ${
-                isLoading 
+                (isLoading || (!inputValue.trim() && !selectedImage))
                   ? 'opacity-50 cursor-not-allowed' 
                   : 'hover:bg-aqua-500 active:scale-95 hover:shadow-lg hover:shadow-aqua-600/25'
               }`}
-              disabled={isLoading}
+              disabled={isLoading || (!inputValue.trim() && !selectedImage)}
             >
               <Send size={18} />
             </button>
