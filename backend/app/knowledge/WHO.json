@@ -1,0 +1,31 @@
+{
+  "name": "WHO Guidelines for Drinking-water Quality",
+  "version": "4th Edition",
+  "limits": {
+    "ph": {
+      "min": 6.5,
+      "max": 8.5,
+      "description": "Standard guideline range. Low pH causes corrosion; high pH leads to incrustation."
+    },
+    "tds": {
+      "max": 500.0,
+      "description": "TDS level below 500 mg/L is considered excellent. Higher values impact palatability."
+    },
+    "turbidity": {
+      "max": 5.0,
+      "description": "Turbidity should ideally be below 5 NTU for domestic consumption."
+    },
+    "hardness": {
+      "max": 300.0,
+      "description": "Hardness exceeding 300 mg/L causes scaling in pipes and limits soap effectiveness."
+    },
+    "chlorine": {
+      "max": 5.0,
+      "description": "Chlorine standard for health. Taste thresholds typically arise around 0.3-0.6 mg/L."
+    },
+    "fluoride": {
+      "max": 1.5,
+      "description": "Fluoride above 1.5 mg/L causes dental fluorosis; extremely high exposure causes skeletal fluorosis."
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "Bureau of Indian Standards (BIS) IS 10500:2012 Drinking Water Specification",
+  "version": "Second Revision",
+  "limits": {
+    "ph": {
+      "min": 6.5,
+      "max": 8.5,
+      "description": "Acceptable limit is 6.5 to 8.5. No relaxation."
+    },
+    "tds": {
+      "max": 500.0,
+      "permissible_max": 2000.0,
+      "description": "Acceptable limit is 500 mg/L. Permissible limit in the absence of an alternate source is 2000 mg/L."
+    },
+    "turbidity": {
+      "max": 1.0,
+      "permissible_max": 5.0,
+      "description": "Acceptable limit is 1 NTU. Permissible limit in the absence of an alternate source is 5 NTU."
+    },
+    "hardness": {
+      "max": 200.0,
+      "permissible_max": 600.0,
+      "description": "Acceptable limit is 200 mg/L. Permissible limit in the absence of an alternate source is 600 mg/L."
+    },
+    "chlorine": {
+      "min": 0.2,
+      "max": 1.0,
+      "description": "Minimum residual chlorine should be 0.2 mg/L in distribution system for disinfection."
+    },
+    "fluoride": {
+      "max": 1.0,
+      "permissible_max": 1.5,
+      "description": "Acceptable limit is 1.0 mg/L. Permissible limit in the absence of an alternate source is 1.5 mg/L."
+    }
+  }
+}
