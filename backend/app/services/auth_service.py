@@ -9,11 +9,12 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.services.db_service import get_db
 from app.models.db_models import User
+from app.config import settings
 
 logger = logging.getLogger("aquasentinel")
 
 # JWT configuration settings
-SECRET_KEY = "aquasentinel_production_secret_key_v1"
+SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
