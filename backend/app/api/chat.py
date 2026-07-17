@@ -7,8 +7,9 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from app.services.db_service import get_db, save_agent_execution_log, get_or_create_user
 from app.models.db_models import ChatSession, ChatMessage
-from app.graph.workflow import app_workflow
+from PIL import Image as PILImage
 from app.graph.state import AgentState
+from app.graph.workflow import app_workflow
 
 logger = logging.getLogger("aquasentinel")
 
@@ -140,10 +141,32 @@ async def send_chat_message(
         water_out = agent_outputs.get("water_analysis", {})
         water_score = water_out.get("water_score")
         
+        vision_out = agent_outputs.get("vision_analysis", {})
+        
+        # Calculate image metrics if file was uploaded
+        img_width = None
+        img_height = None
+        img_size = None
+        img_mime = None
+        img_name = None
+        
+        if image and image.filename:
+            img_name = image.filename
+            img_mime = image.content_type
+            if saved_image_path and os.path.exists(saved_image_path):
+                img_size = os.path.getsize(saved_image_path)
+                try:
+                    with PILImage.open(saved_image_path) as img:
+                        img_width, img_height = img.size
+                except Exception as img_err:
+                    logger.error(f"Failed to extract image dimensions: {img_err}")
+        
         # Determine average confidence rating if agents executed
         conf_scores = []
         if water_out and "confidence_score" in water_out:
             conf_scores.append(water_out["confidence_score"])
+        if vision_out and "confidence_score" in vision_out:
+            conf_scores.append(vision_out["confidence_score"])
         knowledge_out = agent_outputs.get("knowledge", {})
         if knowledge_out and "confidence_score" in knowledge_out:
             conf_scores.append(knowledge_out["confidence_score"])
@@ -159,11 +182,20 @@ async def send_chat_message(
             execution_time_ms=execution_time_ms,
             water_score=water_score,
             confidence_score=avg_conf,
-            graph_version="v1.0-milestone3",
+            graph_version="v2.0-milestone4",
             gemini_model="gemini-2.5-flash",
             reflection_iterations=final_state.get("iterations", 0),
             agents_executed=final_state.get("plan", {}).get("selected_agents", []),
-            synthesized_response=final_state.get("synthesized_response", "")
+            synthesized_response=final_state.get("synthesized_response", ""),
+            image_filename=img_name,
+            image_width=img_width,
+            image_height=img_height,
+            mime_type=img_mime,
+            file_size=img_size,
+            vision_confidence=vision_out.get("confidence_score") if vision_out else None,
+            detected_hazards=vision_out.get("contaminants_detected", []) if vision_out else None,
+            contamination_level=vision_out.get("contamination_level") if vision_out else None,
+            analysis_model="gemini-2.5-flash"
         )
         logger.info("Saved agent execution log entry in database.")
     except Exception as db_err:

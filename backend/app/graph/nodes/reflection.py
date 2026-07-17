@@ -11,17 +11,18 @@ def reflection_node(state: AgentState) -> AgentState:
     outputs = state.get("agent_outputs", {})
     water_out = outputs.get("water_analysis", {})
     knowledge_out = outputs.get("knowledge", {})
+    vision_out = outputs.get("vision_analysis", {})
     
-    # Skip if both are not executed
-    if not water_out or not knowledge_out:
-        logger.warning("Reflection skipped: Water analysis or Knowledge outputs missing.")
+    # Skip if no outputs exist
+    if not water_out and not knowledge_out and not vision_out:
+        logger.warning("Reflection skipped: No worker outputs found.")
         state["is_valid"] = True
         state["reflection_feedback"] = None
         return state
         
     try:
-        # Run reflection agent
-        result = run_reflector_agent(water_out, knowledge_out)
+        # Run reflection agent with optional vision results
+        result = run_reflector_agent(water_out, knowledge_out, vision_out)
         
         state["is_valid"] = result.is_valid
         state["reflection_feedback"] = result.refinement_instructions

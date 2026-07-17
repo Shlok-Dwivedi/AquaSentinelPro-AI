@@ -85,11 +85,20 @@ def save_agent_execution_log(
     execution_time_ms: int,
     water_score: float = None,
     confidence_score: float = None,
-    graph_version: str = "v1.0-milestone3",
+    graph_version: str = "v2.0-milestone4",
     gemini_model: str = "gemini-2.5-flash",
     reflection_iterations: int = 0,
     agents_executed: list = None,
-    synthesized_response: str = None
+    synthesized_response: str = None,
+    image_filename: str = None,
+    image_width: int = None,
+    image_height: int = None,
+    mime_type: str = None,
+    file_size: int = None,
+    vision_confidence: float = None,
+    detected_hazards: list = None,
+    contamination_level: str = None,
+    analysis_model: str = "gemini-2.5-flash"
 ) -> AgentExecutionLog:
     """Saves a detailed agentic workflow run trace log with extended metrics to the database."""
     log_record = AgentExecutionLog(
@@ -105,7 +114,16 @@ def save_agent_execution_log(
         gemini_model=gemini_model,
         reflection_iterations=reflection_iterations,
         agents_executed=agents_executed,
-        synthesized_response=synthesized_response
+        synthesized_response=synthesized_response,
+        image_filename=image_filename,
+        image_width=image_width,
+        image_height=image_height,
+        mime_type=mime_type,
+        file_size=file_size,
+        vision_confidence=vision_confidence,
+        detected_hazards=detected_hazards,
+        contamination_level=contamination_level,
+        analysis_model=analysis_model
     )
     db.add(log_record)
     db.commit()

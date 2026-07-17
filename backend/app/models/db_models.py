@@ -111,6 +111,17 @@ class AgentExecutionLog(Base):
     agents_executed = Column(JSON, nullable=True)
     synthesized_response = Column(Text, nullable=True)
     
+    # Extended metrics fields for Milestone 4 (Vision)
+    image_filename = Column(String(255), nullable=True)
+    image_width = Column(Integer, nullable=True)
+    image_height = Column(Integer, nullable=True)
+    mime_type = Column(String(100), nullable=True)
+    file_size = Column(Integer, nullable=True)
+    vision_confidence = Column(Float, nullable=True)
+    detected_hazards = Column(JSON, nullable=True)
+    contamination_level = Column(String(50), nullable=True)
+    analysis_model = Column(String(100), nullable=True)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
 
     chat_message = relationship("ChatMessage", back_populates="execution_logs")

@@ -8,10 +8,14 @@ logger = logging.getLogger("aquasentinel")
 SYSTEM_INSTRUCTION = """You are the Lead Planning Agent of the AquaSentinel-AI Multi-Agent Platform.
 Your task is to analyze user queries, uploaded image paths, manual parameters, and user memory context, and plan an execution route.
 
+Core Rules for Images:
+1. Inspect the uploaded image reference path details. If an image is provided but is clearly unrelated to water safety, rivers, taps, pipelines, or water tanks (for example, a photo of a keyboard, dog, car, or general text document), you MUST set 'is_water_image' to False, set 'selected_agents' to an empty list, and set 'execution_order' to an empty list.
+2. If it is a water-related image, set 'is_water_image' to True, and add 'vision_analysis' to the selected agents list.
+
 Available Specialized Agents:
 1. 'water_analysis': Triggered if manual chemical water parameters are provided (pH, TDS, turbidity, hardness, chlorine, fluoride).
 2. 'knowledge': Triggered to evaluate chemical scores against BIS/WHO standard specifications. Must depend on 'water_analysis'.
-3. 'vision_analysis': Triggered if an image file path is uploaded.
+3. 'vision_analysis': Triggered if a valid water-related image file path is uploaded.
 4. 'purification': Triggered to suggest filters (RO, UV, UF, activated carbon). Must depend on 'water_analysis' or 'vision_analysis' if they are running.
 5. 'conservation': Triggered if the user asks for water-saving advice, conservation measures, or rainwater harvesting.
 6. 'complaint': Triggered if the user reports a service issue, pollution, leakage, or requests to file a complaint letter to municipal authorities.
@@ -21,7 +25,8 @@ Task:
 Determine:
 1. 'selected_agents': Which agents are needed.
 2. 'dependencies': Which agent results are required by other agents.
-3. 'execution_order': Flat list showing the exact order to execute the nodes. Ensure dependencies are completed before their child nodes.
+3. 'execution_order': Flat list showing the exact order to execute the nodes.
+4. 'is_water_image': Boolean flagging if the image is a water/sanitation asset.
 
 Return a strict JSON output matching the TaskPlan schema.
 """
@@ -49,18 +54,32 @@ User Profile Context: {memory}
             system_instruction=SYSTEM_INSTRUCTION
         )
         
-        # Save the plan inside state
-        state["plan"] = plan_result
+        # Check if the image is flagged as unsupported
+        if plan_result.get("is_water_image") is False:
+            logger.warning("Planning Agent flagged the uploaded image as unrelated to water. Skipping Vision node.")
+            state["plan"] = {
+                "selected_agents": [],
+                "dependencies": {},
+                "execution_order": [],
+                "is_water_image": False
+            }
+            state["agent_outputs"]["vision_analysis"] = {
+                "unsupported_image": True,
+                "observations": "Unsupported Image. The uploaded image is clearly unrelated to water safety or sanitation."
+            }
+        else:
+            state["plan"] = plan_result
+            
         state["current_step"] = 0
-        
-        logger.info(f"Planning Agent generated plan: {plan_result}")
+        logger.info(f"Planning Agent generated plan: {state['plan']}")
     except Exception as e:
         logger.error(f"Error in Planning Agent: {e}")
         # Default fallback plan: execute water analysis and knowledge
         state["plan"] = {
             "selected_agents": ["water_analysis", "knowledge"],
             "dependencies": {"knowledge": ["water_analysis"]},
-            "execution_order": ["water_analysis", "knowledge"]
+            "execution_order": ["water_analysis", "knowledge"],
+            "is_water_image": True
         }
         state["current_step"] = 0
         

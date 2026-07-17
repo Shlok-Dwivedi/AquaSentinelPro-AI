@@ -2,6 +2,7 @@ import logging
 from app.graph.state import AgentState
 from app.agents.water_analyst import run_water_analyst
 from app.agents.knowledge import run_knowledge_agent
+from app.agents.vision_analyst import run_vision_analyst
 
 logger = logging.getLogger("aquasentinel")
 
@@ -24,7 +25,7 @@ def water_analysis_node(state: AgentState) -> AgentState:
     return state
 
 def knowledge_node(state: AgentState) -> AgentState:
-    """Specialist Knowledge Node. Renamed from policy_standards_node. Validates limits against loaded WHO/BIS files."""
+    """Specialist Knowledge Node. Validates limits against loaded WHO/BIS files."""
     selected_agents = state.get("plan", {}).get("selected_agents", [])
     if "knowledge" not in selected_agents:
         logger.info("Knowledge Agent: skipped (not in plan).")
@@ -40,20 +41,33 @@ def knowledge_node(state: AgentState) -> AgentState:
     logger.info(f"Knowledge Agent finished. Compliant: {result.is_compliant}")
     return state
 
-# Stubs for other agents kept for future milestones compatibility
 def vision_analysis_node(state: AgentState) -> AgentState:
+    """Specialist Vision Analysis Node. Invokes Gemini Vision and parses response."""
     selected_agents = state.get("plan", {}).get("selected_agents", [])
     if "vision_analysis" not in selected_agents:
+        logger.info("Vision Analysis Agent: skipped (not in plan).")
         return state
-    logger.info("Running Vision Analysis Agent (Stub)...")
-    state["agent_outputs"]["vision_analysis"] = {
-        "detected_contaminants": [],
-        "contamination_severity": "None",
-        "structural_issues": [],
-        "description": "Visual stub execution."
-    }
+        
+    logger.info("Running Vision Analysis Agent...")
+    image_path = state.get("image_path")
+    if not image_path:
+        logger.warning("No image path provided for Vision Agent.")
+        return state
+        
+    try:
+        result = run_vision_analyst(image_path)
+        state["agent_outputs"]["vision_analysis"] = result.dict()
+        logger.info("Vision Analysis Agent finished successfully.")
+    except Exception as e:
+        logger.error(f"Vision Agent execution failed: {e}")
+        state["agent_outputs"]["vision_analysis"] = {
+            "unsupported_image": True,
+            "observations": f"Skipped Vision Analysis: {e}"
+        }
+        
     return state
 
+# Stubs for other agents kept for future milestones compatibility
 def purification_node(state: AgentState) -> AgentState:
     selected_agents = state.get("plan", {}).get("selected_agents", [])
     if "purification" not in selected_agents:

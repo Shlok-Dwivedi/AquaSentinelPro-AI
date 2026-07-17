@@ -2,6 +2,7 @@ import logging
 import json
 import google.generativeai as genai
 from app.config import settings
+from app.models.agent_schemas import TaskPlan, WaterAnalysisResult, KnowledgeValidationResult, ReflectionResult, VisionAnalysisResult
 
 logger = logging.getLogger("aquasentinel")
 
@@ -49,49 +50,50 @@ def get_mock_fallback(prompt: str, schema_class: type) -> dict:
     prompt_lower = prompt.lower()
     
     if schema_name == "TaskPlan":
-        # Check for success criteria match first
+        # 1. Check for unsupported image scenario first
+        if "unsupported" in prompt_lower:
+            return {
+                "selected_agents": [],
+                "dependencies": {},
+                "execution_order": [],
+                "is_water_image": False
+            }
+            
+        # 2. Check for success criteria match (TDS 750, salty)
         if "salty" in prompt_lower and "750" in prompt_lower:
-            selected = ["water_analysis", "knowledge"]
-            deps = {"knowledge": ["water_analysis"]}
-            order = ["water_analysis", "knowledge"]
+            # If an image exists, we trigger both
+            if "uploaded image path: none" not in prompt_lower:
+                selected = ["water_analysis", "vision_analysis", "knowledge"]
+                deps = {"knowledge": ["water_analysis"]}
+                order = ["water_analysis", "vision_analysis", "knowledge"]
+            else:
+                selected = ["water_analysis", "knowledge"]
+                deps = {"knowledge": ["water_analysis"]}
+                order = ["water_analysis", "knowledge"]
+                
             return {
                 "selected_agents": selected,
                 "dependencies": deps,
-                "execution_order": order
+                "execution_order": order,
+                "is_water_image": True
             }
             
-        # Rule-based dynamic mock planner based on query content
+        # 3. Dynamic mapping based on query content
         selected = []
         deps = {}
         
-        if any(kw in prompt_lower for kw in ["tds", "ph", "turbidity", "chlorine", "fluoride", "hardness", "taste", "salty", "smell", "odor"]):
+        # Analyze parameters presence
+        has_params = "manual water parameters: {}" not in prompt_lower and "manual water parameters: none" not in prompt_lower
+        has_image = "uploaded image path: none" not in prompt_lower
+        
+        if has_params or any(kw in prompt_lower for kw in ["tds", "ph", "turbidity", "chlorine", "fluoride", "hardness"]):
             selected.append("water_analysis")
             selected.append("knowledge")
             deps["knowledge"] = ["water_analysis"]
             
-        if any(kw in prompt_lower for kw in ["image", "photo", "pic", "river", "lake", "tank", "tap"]):
+        if has_image:
             selected.append("vision_analysis")
             
-        if "water_analysis" in selected or "vision_analysis" in selected:
-            selected.append("purification")
-            selected.append("conservation")
-            selected.append("report_generation")
-            
-            p_deps = []
-            if "water_analysis" in selected:
-                p_deps.append("water_analysis")
-            if "vision_analysis" in selected:
-                p_deps.append("vision_analysis")
-            
-            deps["purification"] = p_deps
-            deps["conservation"] = p_deps
-            deps["report_generation"] = ["purification", "conservation", "knowledge"]
-            
-        if any(kw in prompt_lower for kw in ["complaint", "report to municipal", "register complaint"]):
-            selected.append("complaint")
-            if "water_analysis" in selected:
-                deps["complaint"] = ["water_analysis"]
-                
         if not selected:
             selected = ["water_analysis", "knowledge"]
             deps = {"knowledge": ["water_analysis"]}
@@ -113,11 +115,11 @@ def get_mock_fallback(prompt: str, schema_class: type) -> dict:
         return {
             "selected_agents": selected,
             "dependencies": deps,
-            "execution_order": order
+            "execution_order": order,
+            "is_water_image": True
         }
         
     elif schema_name == "WaterAnalysisResult":
-        # Extract properties dynamically or return mock based on prompt contents
         score = 85.0
         safety = "Safe"
         risk = "Low"
