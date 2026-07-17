@@ -7,6 +7,9 @@ class BaseAppSettings(BaseSettings):
     GEMINI_API_KEY: str = "placeholder_key"
     SECRET_KEY: str = "aquasentinel_super_secret_session_key"
     APP_ENV: str = "development"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    CORS_ORIGINS: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"),
