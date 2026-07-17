@@ -18,9 +18,11 @@ User Query / Form
                            │
                            ├─► Memory Agent (fetches profile history)
                            ├─► Planning Agent (creates task list)
-                           ├─► Specialist Agents (Water, Vision, Policy, Purification, Conservation, Complaint)
-                           ├─► Reflection Agent (validates outputs against thresholds)
-                           └─► Report Agent (compiles findings to PDF)
+                           ├─► Water Scoring Engine (deterministic Python calculations)
+                           ├─► Water Analysis Agent (Gemini reasoning on score)
+                           ├─► Knowledge Agent (cross-validates against WHO/BIS specifications)
+                           ├─► Reflection Agent (logical verification loop)
+                           └─► Synthesizer (compiles findings into markdown)
 ```
 
 For more detailed information, see [ARCHITECTURE.md](file:///e:/Projects/AquaSentinel-AI-main/ARCHITECTURE.md).
@@ -36,16 +38,19 @@ AquaSentinel-AI/
 │   │   ├── main.py                # FastAPI server entrypoint
 │   │   ├── config.py              # Environment configuration loader
 │   │   ├── graph/                 # LangGraph Workflow definitions
-│   │   ├── agents/                # AI Agents Prompt logic
+│   │   │   └── nodes/             # LangGraph state nodes (Memory, Planner, etc.)
+│   │   ├── agents/                # AI Agents Prompt logic (Analyst, Reflector)
+│   │   ├── knowledge/             # WHO and BIS specifications reference sheets
 │   │   ├── models/                # DB Models & API Pydantic schemas
-│   │   ├── services/              # PDF & DB services
+│   │   ├── services/              # Gemini & DB services
+│   │   ├── utils/                 # Water scoring calculations engine
 │   │   └── api/                   # REST endpoint routers
 │   ├── requirements.txt           # Python backend packages
 │   └── .env.example               # Backend environment templates
 │
 ├── frontend/                      # React Frontend (Vite)
 │   ├── src/
-│   │   ├── components/            # Shared UI widgets
+│   │   ├── components/            # Shared UI widgets (Sidebar)
 │   │   └── pages/                 # Routing pages (Dashboard, Chat, etc.)
 │   ├── package.json
 │   └── tailwind.config.js
@@ -72,16 +77,20 @@ AquaSentinel-AI/
    ```bash
    pip install -r requirements.txt
    ```
-3. Copy environment settings:
+3. Copy environment settings and configure database/Gemini key:
    ```bash
    copy .env.example .env
    ```
-4. Start the FastAPI development server:
+4. Run migrations:
+   ```bash
+   alembic upgrade head
+   ```
+5. Start the FastAPI development server:
    ```bash
    uvicorn app.main:app --reload
    ```
-   * Swagger Documentation is available at: `http://localhost:8000/docs`
-   * Health endpoint is available at: `http://localhost:8000/health`
+   * Swagger Documentation: `http://localhost:8000/docs`
+   * Health endpoint: `http://localhost:8000/health`
 
 ### 2. Frontend Setup
 1. Navigate to the `frontend/` directory:
@@ -97,3 +106,11 @@ AquaSentinel-AI/
    npm run dev
    ```
 4. Access dashboard in browser: `http://localhost:5173`
+
+---
+
+## 🧪 Running Automated Tests
+The platform includes automated scenarios covering safe water, high TDS, unsafe pH, multiple contaminants, and incomplete parameters:
+```bash
+python backend/app/scratch/test_milestone3.py
+```
