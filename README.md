@@ -1,8 +1,8 @@
 # 💧 AquaSentinel-AI Agentic Platform
 
-> **An Agentic Multi-Agent System for Intelligent Water Safety, Purification Guidance, Water Conservation, and Automated Complaint Registration.**
+> **An Agentic Multi-Agent System for Intelligent Water Safety, Vision Contaminants Detection, Purification Guidance, Water Conservation, and Automated Complaint Registration.**
 
-This project is the official agentic AI implementation of AquaSentinel-AI for the **IBM SkillsBuild AI Internship**, focusing on **UN Sustainable Development Goal 6 (Clean Water and Sanitation)**.
+This project is the official agentic AI platform implementation of AquaSentinel-AI for the **IBM SkillsBuild AI Internship**, focusing on **UN Sustainable Development Goal 6 (Clean Water and Sanitation)**.
 
 ---
 
@@ -11,18 +11,19 @@ This project is the official agentic AI implementation of AquaSentinel-AI for th
 AquaSentinel-AI uses a stateful multi-agent system coordinated with **LangGraph** and **FastAPI** to process user queries, chemical readings, and images:
 
 ```
-User Query / Form 
+User Query / Image Upload 
    │
    ▼
 [FastAPI Backend] ──► [LangGraph Engine]
                            │
                            ├─► Memory Agent (fetches profile history)
-                           ├─► Planning Agent (creates task list)
+                           ├─► Planning Agent (creates task list & validates water images)
+                           ├─► Vision Agent (analyzes algae, plastic, oil, foam via VisionProvider)
                            ├─► Water Scoring Engine (deterministic Python calculations)
                            ├─► Water Analysis Agent (Gemini reasoning on score)
                            ├─► Knowledge Agent (cross-validates against WHO/BIS specifications)
-                           ├─► Reflection Agent (logical verification loop)
-                           └─► Synthesizer (compiles findings into markdown)
+                           ├─► Reflection Agent (logical verification loops between visual & chemical logs)
+                           └─► Synthesizer (compiles unified findings into markdown)
 ```
 
 For more detailed information, see [ARCHITECTURE.md](file:///e:/Projects/AquaSentinel-AI-main/ARCHITECTURE.md).
@@ -38,11 +39,11 @@ AquaSentinel-AI/
 │   │   ├── main.py                # FastAPI server entrypoint
 │   │   ├── config.py              # Environment configuration loader
 │   │   ├── graph/                 # LangGraph Workflow definitions
-│   │   │   └── nodes/             # LangGraph state nodes (Memory, Planner, etc.)
-│   │   ├── agents/                # AI Agents Prompt logic (Analyst, Reflector)
+│   │   │   └── nodes/             # LangGraph state nodes (Memory, Planner, specialists)
+│   │   ├── agents/                # AI Agents Prompt logic (Analyst, Vision, Reflector)
 │   │   ├── knowledge/             # WHO and BIS specifications reference sheets
 │   │   ├── models/                # DB Models & API Pydantic schemas
-│   │   ├── services/              # Gemini & DB services
+│   │   ├── services/              # Gemini, VisionProvider, & DB services
 │   │   ├── utils/                 # Water scoring calculations engine
 │   │   └── api/                   # REST endpoint routers
 │   ├── requirements.txt           # Python backend packages
@@ -110,7 +111,11 @@ AquaSentinel-AI/
 ---
 
 ## 🧪 Running Automated Tests
-The platform includes automated scenarios covering safe water, high TDS, unsafe pH, multiple contaminants, and incomplete parameters:
+The platform includes automated scenarios covering safe water, high TDS, pH limits deviations, image contaminants (algae, plastics, oil, foam), combined image+TDS, and unsupported files:
 ```bash
+# Chemical & Orchestration Node Tests (Milestone 3)
 python backend/app/scratch/test_milestone3.py
+
+# Vision Provider & Multi-Agent Tests (Milestone 4)
+python backend/app/tests/test_milestone4.py
 ```
