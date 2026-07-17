@@ -101,6 +101,16 @@ class AgentExecutionLog(Base):
     reflection_feedback_json = Column(JSON, nullable=True)
     final_outputs_json = Column(JSON, nullable=True)
     execution_time_ms = Column(Integer, default=0)
+    
+    # Extended metrics fields for Milestone 3
+    water_score = Column(Float, nullable=True)
+    confidence_score = Column(Float, nullable=True)
+    graph_version = Column(String(50), nullable=True)
+    gemini_model = Column(String(100), nullable=True)
+    reflection_iterations = Column(Integer, default=0)
+    agents_executed = Column(JSON, nullable=True)
+    synthesized_response = Column(Text, nullable=True)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
 
     chat_message = relationship("ChatMessage", back_populates="execution_logs")

@@ -82,16 +82,30 @@ def save_agent_execution_log(
     reflection_attempts: int,
     reflection_feedback_json: dict,
     final_outputs_json: dict,
-    execution_time_ms: int
+    execution_time_ms: int,
+    water_score: float = None,
+    confidence_score: float = None,
+    graph_version: str = "v1.0-milestone3",
+    gemini_model: str = "gemini-2.5-flash",
+    reflection_iterations: int = 0,
+    agents_executed: list = None,
+    synthesized_response: str = None
 ) -> AgentExecutionLog:
-    """Saves a detailed agentic workflow run trace log to the database."""
+    """Saves a detailed agentic workflow run trace log with extended metrics to the database."""
     log_record = AgentExecutionLog(
         chat_message_id=chat_message_id,
         plan_json=plan_json,
         reflection_attempts=reflection_attempts,
         reflection_feedback_json=reflection_feedback_json,
         final_outputs_json=final_outputs_json,
-        execution_time_ms=execution_time_ms
+        execution_time_ms=execution_time_ms,
+        water_score=water_score,
+        confidence_score=confidence_score,
+        graph_version=graph_version,
+        gemini_model=gemini_model,
+        reflection_iterations=reflection_iterations,
+        agents_executed=agents_executed,
+        synthesized_response=synthesized_response
     )
     db.add(log_record)
     db.commit()

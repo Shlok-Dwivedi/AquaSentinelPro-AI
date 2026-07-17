@@ -135,14 +135,35 @@ async def send_chat_message(
 
     # 8. Save Execution Log in database
     try:
+        # Extract metrics safely from agent outputs if they ran
+        agent_outputs = final_state.get("agent_outputs", {})
+        water_out = agent_outputs.get("water_analysis", {})
+        water_score = water_out.get("water_score")
+        
+        # Determine average confidence rating if agents executed
+        conf_scores = []
+        if water_out and "confidence_score" in water_out:
+            conf_scores.append(water_out["confidence_score"])
+        knowledge_out = agent_outputs.get("knowledge", {})
+        if knowledge_out and "confidence_score" in knowledge_out:
+            conf_scores.append(knowledge_out["confidence_score"])
+        avg_conf = sum(conf_scores) / len(conf_scores) if conf_scores else None
+
         save_agent_execution_log(
             db=db,
             chat_message_id=assistant_msg_record.id,
             plan_json=final_state.get("plan", {}),
             reflection_attempts=final_state.get("iterations", 0),
             reflection_feedback_json={"feedback": final_state.get("reflection_feedback")},
-            final_outputs_json=final_state.get("agent_outputs", {}),
-            execution_time_ms=execution_time_ms
+            final_outputs_json=agent_outputs,
+            execution_time_ms=execution_time_ms,
+            water_score=water_score,
+            confidence_score=avg_conf,
+            graph_version="v1.0-milestone3",
+            gemini_model="gemini-2.5-flash",
+            reflection_iterations=final_state.get("iterations", 0),
+            agents_executed=final_state.get("plan", {}).get("selected_agents", []),
+            synthesized_response=final_state.get("synthesized_response", "")
         )
         logger.info("Saved agent execution log entry in database.")
     except Exception as db_err:

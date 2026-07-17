@@ -10,7 +10,7 @@ Your task is to analyze user queries, uploaded image paths, manual parameters, a
 
 Available Specialized Agents:
 1. 'water_analysis': Triggered if manual chemical water parameters are provided (pH, TDS, turbidity, hardness, chlorine, fluoride).
-2. 'policy_standards': Triggered to evaluate chemical scores against BIS/WHO standard tables. Must depend on 'water_analysis'.
+2. 'knowledge': Triggered to evaluate chemical scores against BIS/WHO standard specifications. Must depend on 'water_analysis'.
 3. 'vision_analysis': Triggered if an image file path is uploaded.
 4. 'purification': Triggered to suggest filters (RO, UV, UF, activated carbon). Must depend on 'water_analysis' or 'vision_analysis' if they are running.
 5. 'conservation': Triggered if the user asks for water-saving advice, conservation measures, or rainwater harvesting.
@@ -56,11 +56,11 @@ User Profile Context: {memory}
         logger.info(f"Planning Agent generated plan: {plan_result}")
     except Exception as e:
         logger.error(f"Error in Planning Agent: {e}")
-        # Default fallback plan: execute water analysis and policy standards
+        # Default fallback plan: execute water analysis and knowledge
         state["plan"] = {
-            "selected_agents": ["water_analysis", "policy_standards"],
-            "dependencies": {"policy_standards": ["water_analysis"]},
-            "execution_order": ["water_analysis", "policy_standards"]
+            "selected_agents": ["water_analysis", "knowledge"],
+            "dependencies": {"knowledge": ["water_analysis"]},
+            "execution_order": ["water_analysis", "knowledge"]
         }
         state["current_step"] = 0
         
