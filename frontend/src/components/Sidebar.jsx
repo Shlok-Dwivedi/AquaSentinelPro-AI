@@ -6,10 +6,11 @@ import {
   FileText, 
   AlertOctagon, 
   Settings as SettingsIcon,
-  Droplet
+  Droplet,
+  LogOut
 } from 'lucide-react';
 
-const Sidebar = ({ currentPage, setCurrentPage }) => {
+const Sidebar = ({ currentPage, setCurrentPage, currentUser, onLogout }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'chat', label: 'AI Assistant', icon: MessageSquare },
@@ -18,6 +19,11 @@ const Sidebar = ({ currentPage, setCurrentPage }) => {
     { id: 'complaints', label: 'Complaints', icon: AlertOctagon },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
+
+  const getInitials = (name) => {
+    if (!name) return 'US';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-screen sticky top-0">
@@ -56,16 +62,23 @@ const Sidebar = ({ currentPage, setCurrentPage }) => {
       </nav>
 
       {/* Profile Footer */}
-      <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+      <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex flex-col gap-3">
         <div className="flex items-center gap-3 p-2">
-          <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-aqua-400">
-            IB
+          <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-aqua-400 text-sm">
+            {getInitials(currentUser?.name)}
           </div>
-          <div>
-            <h4 className="text-sm font-semibold text-white">IBM Intern</h4>
-            <p className="text-xs text-slate-500">AquaSentinel-AI</p>
+          <div className="min-w-0 flex-1">
+            <h4 className="text-sm font-semibold text-white truncate">{currentUser?.name || 'User Profile'}</h4>
+            <p className="text-xs text-slate-500 truncate">{currentUser?.email || 'aquasentinel-ai'}</p>
           </div>
         </div>
+        
+        <button 
+          onClick={onLogout}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-red-500/10 hover:text-red-400 text-slate-400 rounded-xl text-xs font-semibold border border-slate-800 transition"
+        >
+          <LogOut size={14} /> Log Out
+        </button>
       </div>
     </aside>
   );

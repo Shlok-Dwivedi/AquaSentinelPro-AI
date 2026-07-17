@@ -113,8 +113,12 @@ const Chat = () => {
         formData.append(key, val);
       });
 
+      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:8000/api/v1/chat/message', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData
       });
 

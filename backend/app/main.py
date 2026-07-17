@@ -1,17 +1,19 @@
 import logging
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.services.db_service import init_db
-from app.api import chat, analysis, complaints, reports
+from app.api import chat, analysis, complaints, reports, auth, monitoring
+from app.utils.logger import setup_logging
 
-# Set up logging configuration
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler()]
-)
+# Configure structured rotating logs
+setup_logging()
 logger = logging.getLogger("aquasentinel")
+
+# Ensure static directories exist
+os.makedirs("static/reports", exist_ok=True)
 
 app = FastAPI(
     title="AquaSentinel AI Agentic Platform API",
@@ -27,6 +29,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files directory to serve reports directly
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Startup database initialization
 @app.on_event("startup")
@@ -50,10 +55,12 @@ def health_check():
 
 # Register routers under version prefix
 api_prefix = "/api/v1"
+app.include_router(auth.router, prefix=api_prefix)
 app.include_router(chat.router, prefix=api_prefix)
 app.include_router(analysis.router, prefix=api_prefix)
 app.include_router(complaints.router, prefix=api_prefix)
 app.include_router(reports.router, prefix=api_prefix)
+app.include_router(monitoring.router, prefix=api_prefix)
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,42 +1,148 @@
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
-import io
-from typing import Dict, Any, List
+import os
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from typing import List
+from app.services.db_service import get_db
+from app.services.auth_service import get_current_user
+from app.models.db_models import Report, User, AgentExecutionLog
+from app.agents.report_generator import generate_water_report
+
+logger = logging.getLogger("aquasentinel")
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
-@router.post("/generate")
-async def generate_report():
-    """Compiles the latest findings into a PDF report."""
-    return {
-        "report_id": "dummy-report-uuid",
-        "pdf_url": "/api/v1/reports/download/dummy-report-uuid",
-        "summary": "This report summarizes water testing values and purification suggestions."
-    }
+from pydantic import BaseModel
+class ManualExportRequest(BaseModel):
+    execution_log_id: str
+    session_id: str
+
+@router.post("/export")
+async def export_report_manually(
+    req: ManualExportRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Exports a report manually from a past execution log."""
+    log = db.query(AgentExecutionLog).filter(AgentExecutionLog.id == req.execution_log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Execution log trace not found.")
+        
+    try:
+        db_report = generate_water_report(
+            user_id=current_user.id,
+            chat_session_id=req.session_id,
+            execution_log_id=log.id,
+            agent_outputs=log.final_outputs_json or {},
+            executed_agents=log.plan_json.get("selected_agents", []) if log.plan_json else [],
+            db=db
+        )
+        return {
+            "report_id": db_report.id,
+            "title": db_report.title,
+            "pdf_url": f"/api/v1/reports/download/{db_report.id}/pdf",
+            "summary": db_report.summary
+        }
+    except Exception as e:
+        logger.error(f"Manual report generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate report: {e}")
 
 @router.get("")
-async def get_reports():
-    """Fetches list of generated reports."""
+async def get_user_reports(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Fetches historical reports for the authenticated user."""
+    reports = db.query(Report).filter(Report.user_id == current_user.id).order_by(Report.created_at.desc()).all()
     return [
         {
-            "id": "report-1",
-            "pdf_url": "/api/v1/reports/download/report-1",
-            "summary": "This report summarizes water testing values and purification suggestions.",
-            "created_at": "2026-07-17T11:30:00Z"
-        }
+            "id": r.id,
+            "title": r.title,
+            "summary": r.summary,
+            "pdf_url": f"/api/v1/reports/download/{r.id}/pdf",
+            "markdown_url": f"/api/v1/reports/download/{r.id}/markdown",
+            "json_url": f"/api/v1/reports/download/{r.id}/json",
+            "created_at": r.created_at.isoformat()
+        } for r in reports
     ]
 
-@router.get("/download/{report_id}")
-async def download_report(report_id: str):
-    """Downloads a dummy compiled PDF report file."""
-    # Create a small dummy PDF file in memory
-    buffer = io.BytesIO()
-    # Write some mock PDF headers/content so it resembles a PDF binary
-    buffer.write(b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 50 >>\nstream\nBT /F1 24 Tf 70 700 Td (AquaSentinel Dummy Report PDF) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000213 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n312\n%%EOF")
-    buffer.seek(0)
-    
-    return StreamingResponse(
-        buffer,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=aquasentinel_report_{report_id}.pdf"}
-    )
+@router.get("/{report_id}")
+async def get_report_details(
+    report_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieves full details of a specific report by ID."""
+    report = db.query(Report).filter(Report.id == report_id, Report.user_id == current_user.id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found or access denied.")
+        
+    return {
+        "id": report.id,
+        "title": report.title,
+        "summary": report.summary,
+        "pdf_url": f"/api/v1/reports/download/{report.id}/pdf",
+        "markdown_url": f"/api/v1/reports/download/{report.id}/markdown",
+        "json_url": f"/api/v1/reports/download/{report.id}/json",
+        "created_at": report.created_at.isoformat(),
+        "execution_log_id": report.agent_execution_log_id
+    }
+
+@router.delete("/{report_id}")
+async def delete_report(
+    report_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Deletes a report record from the database and removes files from disk."""
+    report = db.query(Report).filter(Report.id == report_id, Report.user_id == current_user.id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found or access denied.")
+        
+    # Delete disk files
+    for filepath in [report.pdf_path, report.markdown_path, report.json_path]:
+        if filepath and os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+                logger.info(f"Deleted report file from disk: {filepath}")
+            except Exception as fe:
+                logger.error(f"Failed to delete file {filepath}: {fe}")
+                
+    db.delete(report)
+    db.commit()
+    return {"message": "Report successfully deleted."}
+
+@router.get("/download/{report_id}/{file_format}")
+async def download_report_file(
+    report_id: str,
+    file_format: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Downloads a specific format of the water assessment report (PDF, Markdown, or JSON)."""
+    report = db.query(Report).filter(Report.id == report_id, Report.user_id == current_user.id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found or access denied.")
+        
+    # Map formats
+    if file_format == "pdf":
+        filepath = report.pdf_path
+        media_type = "application/pdf"
+        suffix = "pdf"
+    elif file_format == "markdown":
+        filepath = report.markdown_path
+        media_type = "text/markdown"
+        suffix = "md"
+    elif file_format == "json":
+        filepath = report.json_path
+        media_type = "application/json"
+        suffix = "json"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid format requested. Options: 'pdf', 'markdown', 'json'.")
+        
+    if not filepath or not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail=f"File download missing on disk: {filepath}")
+        
+    filename = f"aquasentinel_report_{report_id}.{suffix}"
+    return FileResponse(filepath, media_type=media_type, filename=filename)

@@ -5,8 +5,10 @@ import os
 from fastapi import APIRouter, Depends, Form, File, UploadFile
 from typing import Optional
 from sqlalchemy.orm import Session
-from app.services.db_service import get_db, save_agent_execution_log, get_or_create_user
-from app.models.db_models import ChatSession, ChatMessage
+from app.services.db_service import get_db, save_agent_execution_log
+from app.models.db_models import ChatSession, ChatMessage, User
+from app.services.auth_service import get_current_user
+from app.agents.report_generator import generate_water_report
 from PIL import Image as PILImage
 from app.graph.state import AgentState
 from app.graph.workflow import app_workflow
@@ -22,7 +24,6 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def send_chat_message(
     message: str = Form(...),
     session_id: Optional[str] = Form(None),
-    user_id: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     ph: Optional[float] = Form(None),
     tds: Optional[float] = Form(None),
@@ -30,12 +31,12 @@ async def send_chat_message(
     hardness: Optional[float] = Form(None),
     chlorine: Optional[float] = Form(None),
     fluoride: Optional[float] = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Sends a user query, triggers the LangGraph orchestration pipeline, and saves logs to the database."""
     # 1. Resolve User and Session
-    user_uuid = user_id or "default_user"
-    user = get_or_create_user(db, user_uuid)
+    user = current_user
     
     if not session_id:
         new_session = ChatSession(user_id=user.id)
@@ -172,7 +173,7 @@ async def send_chat_message(
             conf_scores.append(knowledge_out["confidence_score"])
         avg_conf = sum(conf_scores) / len(conf_scores) if conf_scores else None
 
-        save_agent_execution_log(
+        log_record = save_agent_execution_log(
             db=db,
             chat_message_id=assistant_msg_record.id,
             plan_json=final_state.get("plan", {}),
@@ -185,7 +186,7 @@ async def send_chat_message(
             graph_version="v2.0-milestone4",
             gemini_model="gemini-2.5-flash",
             reflection_iterations=final_state.get("iterations", 0),
-            agents_executed=final_state.get("plan", {}).get("selected_agents", []),
+            agents_executed=plan.get("selected_agents", []),
             synthesized_response=final_state.get("synthesized_response", ""),
             image_filename=img_name,
             image_width=img_width,
@@ -198,11 +199,27 @@ async def send_chat_message(
             analysis_model="gemini-2.5-flash"
         )
         logger.info("Saved agent execution log entry in database.")
+        
+        # Compile a PDF/MD/JSON report if water_analysis or vision_analysis was executed
+        selected = plan.get("selected_agents", [])
+        if "water_analysis" in selected or "vision_analysis" in selected:
+            try:
+                generate_water_report(
+                    user_id=user.id,
+                    chat_session_id=session_uuid,
+                    execution_log_id=log_record.id,
+                    agent_outputs=agent_outputs,
+                    executed_agents=selected,
+                    db=db
+                )
+                logger.info("Automatically generated water safety assessment report.")
+            except Exception as rep_err:
+                logger.error(f"Failed to automatically compile report: {rep_err}")
+                
     except Exception as db_err:
         logger.error(f"Failed to write execution log entry to database: {db_err}")
 
     # 9. Return JSON response matching Milestone 2 specs
-    plan = final_state.get("plan", {})
     return {
         "message_id": assistant_msg_record.id,
         "session_id": session_uuid,
@@ -217,7 +234,11 @@ async def send_chat_message(
     }
 
 @router.get("/history")
-async def get_chat_history(session_id: str, db: Session = Depends(get_db)):
+async def get_chat_history(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Retrieves chat message history logs from the database for a session."""
     messages = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.timestamp.ascii() if hasattr(ChatMessage.timestamp, "ascii") else ChatMessage.timestamp.asc()).all()
     return {

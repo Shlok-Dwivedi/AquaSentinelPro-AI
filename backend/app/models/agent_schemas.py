@@ -65,3 +65,21 @@ class ReflectionResult(BaseModel):
     is_valid: bool = Field(description="True if water analysis and knowledge validations are consistent and complete")
     safety_violations: List[str] = Field(description="Logical contradictions or contradictions found")
     refinement_instructions: Optional[str] = Field(description="Instructions to retry agent execution if invalid")
+
+
+class WaterAssessmentReport(BaseModel):
+    report_id: str
+    report_title: str
+    generated_timestamp: str
+    executive_summary: str
+    water_quality_score: Optional[float] = None
+    drinking_safety: str
+    risk_level: str
+    confidence_score: float
+    chemical_findings: Optional[Dict[str, Any]] = None
+    visual_findings: Optional[Dict[str, Any]] = None
+    standards_violated: List[Dict[str, Any]] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
+    executed_agents: List[str] = Field(default_factory=list)
+    report_version: str = "1.0"
+

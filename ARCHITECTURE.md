@@ -115,3 +115,52 @@ The schema is built to track sessions, historical tests, PDF documents, and agen
 * **`water_analyses`**: Water chemical readings.
 * **`complaints`**: Drafted complaint templates.
 * **`reports`**: Path to compiled water safety reports.
+
+---
+
+## 6. Report Exporter Pipeline
+
+To deliver formal water safety assessments, the system uses a modular **Exporter Architecture** decoupled via the `ExportProvider` base interface:
+
+```
+                       ┌───────────────────────────────┐
+                       │        ExportProvider         │  (Abstract Base Class)
+                       └───────────────┬───────────────┘
+                                       │
+                ┌──────────────────────┼──────────────────────┐
+                ▼                      ▼                      ▼
+   ┌────────────────────────┐  ┌───────────────┐  ┌────────────────────────┐
+   │      PDFExporter       │  │ JSONExporter  │  │    MarkdownExporter    │
+   │ (Styled ReportLab PDF) │  └───────────────┘  └────────────────────────┘
+   └────────────────────────┘
+```
+
+* **PDFExporter**: Formats structural results, WHO standard violations, and visual findings into a clean, print-ready document using **ReportLab** elements.
+* **MarkdownExporter**: Generates web-friendly summaries using standard Markdown layout.
+* **JSONExporter**: Dumps raw structured data schemas for programmatic machine integrations.
+
+On every successful analysis run (where water or vision agents execute), the `generate_water_report` agent executes these exporters concurrently, writes the compiled files into `static/reports/` directories, and registers a database `Report` log referencing the specific `AgentExecutionLog`.
+
+---
+
+## 7. Authentication & Session Security
+
+To protect user dashboard analytics, the gateway implements standard JWT Bearer Token authentication controls:
+
+* **Password Hashing**: User credentials are encrypted using native **bcrypt** password-hashing functions with a security workload scale of 12 rounds. Plaintext passwords are never stored.
+* **JWT Access Tokens**: Stateless access signatures valid for 30 minutes.
+* **Rotating Refresh Tokens**: Session durability is maintained using a rotating 7-day refresh token. To prevent session hijacking:
+  * Refresh tokens are cryptographically hashed using SHA-256 before being stored in the database.
+  * If a user tries to reuse a previous refresh token (token reuse anomaly), the entire session is immediately invalidated, revoking access.
+
+---
+
+## 8. System Diagnostics & Monitoring
+
+The platform provides a diagnostic suite to ensure service reliability in high-throughput environments:
+
+* **`/health`**: Checks API server status, database connectivity, and configuration variables (e.g. Gemini availability status).
+* **`/metrics`**: Returns memory footprint (MB), CPU usage percentage, and active database connection query latency (ms) measured using `psutil`.
+* **`/system/info`**: Exposes uptime duration, platform version metrics, and compiled graph flags.
+* **Structured Rotating Logs**: Writes system audits as structured JSON objects to rotating files capped at 5MB, keeping 5 backup logs.
+
