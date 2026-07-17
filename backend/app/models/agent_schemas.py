@@ -11,6 +11,10 @@ class TaskPlan(BaseModel):
     execution_order: List[str] = Field(
         description="The sequential list representing execution order, e.g. ['water_analysis', 'knowledge']."
     )
+    is_water_image: bool = Field(
+        default=True,
+        description="Set to False if an image is uploaded but it is clearly unrelated to water safety, sanitation, rivers, tanks, or tap water."
+    )
 
 class WaterAnalysisResult(BaseModel):
     water_score: float = Field(description="Quality score from 0-100 calculated by the scoring engine")
@@ -21,6 +25,17 @@ class WaterAnalysisResult(BaseModel):
     explanation: str = Field(description="Gemini explanation of the chemical findings")
     possible_causes: List[str] = Field(description="Gemini list of potential sources/causes of contamination")
     confidence_score: float = Field(description="Confidence score of the analysis (0.0 to 1.0)")
+
+class VisionAnalysisResult(BaseModel):
+    contaminants_detected: List[str] = Field(description="Algae, floating waste, plastic, oil, foam, sediment etc.")
+    structural_issues: List[str] = Field(description="Damaged pipes, damaged storage tanks, open/uncovered source, etc.")
+    water_appearance: str = Field(description="Visual description of the water (e.g. clear, cloudy, muddy, green)")
+    estimated_turbidity: str = Field(description="Visual estimation of turbidity (e.g. Clear, Slight, Moderate, Severe)")
+    estimated_water_color: str = Field(description="Estimated color of the water (e.g. Clear, Brown, Green, Milky)")
+    contamination_level: str = Field(description="Contamination level rating: 'None', 'Low', 'Medium', 'High'")
+    confidence_score: float = Field(description="Confidence score of vision validation (0.0 to 1.0)")
+    observations: str = Field(description="Detailed visual analysis observations")
+    recommended_actions: List[str] = Field(description="Recommended local visual/structural maintenance actions")
 
 class KnowledgeValidationResult(BaseModel):
     is_compliant: bool = Field(description="True if complies with all standard limits")
