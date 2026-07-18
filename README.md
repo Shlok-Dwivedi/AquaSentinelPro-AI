@@ -1,121 +1,156 @@
-# 💧 AquaSentinel-AI Agentic Platform
+# 💧 AquaSentinelPro-AI Agentic Platform (UN SDG 6)
 
-> **An Agentic Multi-Agent System for Intelligent Water Safety, Vision Contaminants Detection, Purification Guidance, Water Conservation, and Automated Complaint Registration.**
-
-This project is the official agentic AI platform implementation of AquaSentinel-AI for the **IBM SkillsBuild AI Internship**, focusing on **UN Sustainable Development Goal 6 (Clean Water and Sanitation)**.
+> **A Production-Grade, Stateful Multi-Agent AI System for Intelligent Water Safety Assessment, Visual Contaminant Detection, Regulatory Compliance Checking, and Professional Safety Report Generation.**
 
 ---
 
-## 🏗️ Architecture Summary
+## 🌟 Project Overview
 
-AquaSentinel-AI uses a stateful multi-agent system coordinated with **LangGraph** and **FastAPI** to process user queries, chemical readings, and images:
+**AquaSentinelPro-AI** is a state-of-the-art agentic software system designed in alignment with **United Nations Sustainable Development Goal 6 (Clean Water and Sanitation)**. Developed as part of the **IBM SkillsBuild AI Internship**, the platform combines deep AI reasoning with deterministic verification algorithms to analyze tap water, rivers, and storage sources.
 
-```
-User Query / Image Upload 
-   │
-   ▼
-[FastAPI Backend] ──► [LangGraph Engine]
-                           │
-                           ├─► Memory Agent (fetches profile history)
-                           ├─► Planning Agent (creates task list & validates water images)
-                           ├─► Vision Agent (analyzes algae, plastic, oil, foam via VisionProvider)
-                           ├─► Water Scoring Engine (deterministic Python calculations)
-                           ├─► Water Analysis Agent (Gemini reasoning on score)
-                           ├─► Knowledge Agent (cross-validates against WHO/BIS specifications)
-                           ├─► Reflection Agent (logical verification loops between visual & chemical logs)
-                           └─► Synthesizer (compiles unified findings into markdown)
-```
-
-For more detailed information, see [ARCHITECTURE.md](file:///e:/Projects/AquaSentinel-AI-main/ARCHITECTURE.md).
+By orchestrating specialized AI agents, the platform interprets chemical properties (pH, TDS, Turbidity, Chlorine, etc.) and visual inputs (images) to compute safety ratings, cross-validate regulatory standards (WHO/BIS), and compile print-ready PDF reports.
 
 ---
 
-## 📁 Project Structure
+## 🏗️ System Architecture & Workflow
+
+AquaSentinelPro-AI uses **LangGraph** to construct a deterministic, stateful multi-agent execution DAG. This ensures logical consistency and logical verification gates:
 
 ```
-AquaSentinel-AI/
+                          ┌───────────────────────────┐
+                          │    React Web Dashboard    │
+                          └─────────────┬─────────────┘
+                                        │  HTTP / Multipart Upload
+                                        ▼
+                          ┌───────────────────────────┐
+                          │      FastAPI Gateway      │
+                          └─────────────┬─────────────┘
+                                        │  Graph Trigger
+                                        ▼
+                         ┌─────────────────────────────┐
+                         │   LangGraph State Machine   │
+                         └──────────────┬──────────────┘
+                                        │
+             ┌──────────────────────────┼──────────────────────────┐
+             ▼                          ▼                          ▼
+     ┌───────────────┐          ┌───────────────┐          ┌───────────────┐
+     │ Memory Agent  │          │ Planner Agent │          │ Vision Agent  │
+     │ (Session logs)│          │ (Task Router) │          │ (Gemini Vision│
+     └───────────────┘          └───────┬───────┘          └───────────────┘
+                                        │
+             ┌──────────────────────────┴──────────────────────────┐
+             ▼                                                     ▼
+     ┌───────────────┐                                     ┌───────────────┐
+     │ Water Analyst │                                     │  Knowledge    │
+     │ (Scoring WQI) │                                     │  Validation   │
+     └───────┬───────┘                                     │  (WHO / BIS)  │
+             │                                             └───────┬───────┘
+             └──────────────────────────┬──────────────────────────┘
+                                        ▼
+                               ┌─────────────────┐
+                               │ Reflection Gate │◄─── [Loops back if inconsistent]
+                               └────────┬────────┘
+                                        ▼
+                               ┌─────────────────┐
+                               │   Synthesizer   │ ──► [Structured PDF Reports]
+                               └─────────────────┘
+```
+
+---
+
+## 🛠️ Technology Stack
+
+| Category | Technology |
+| :--- | :--- |
+| **Backend Core** | FastAPI (Python 3.11/3.13), Uvicorn |
+| **AI Orchestration** | LangGraph, LangChain, Google Generative AI (Gemini 2.5 Flash) |
+| **Database & ORM** | PostgreSQL, SQLite, SQLAlchemy, Alembic Migrations |
+| **PDF Generation** | ReportLab PDF Exporter |
+| **Frontend Core** | React 19, Vite, Tailwind CSS v4, Lucide Icons |
+| **Security** | PyJWT (JSON Web Tokens), Bcrypt Password Hashing |
+| **Containerization** | Docker, Docker Compose, Nginx Reverse Proxy |
+| **CI/CD** | GitHub Actions |
+
+---
+
+## 📁 Repository Structure
+
+```
+AquaSentinelPro-AI/
+├── .github/workflows/      # CI Pipeline (flake8, pytest, build checks)
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                # FastAPI server entrypoint
-│   │   ├── config.py              # Environment configuration loader
-│   │   ├── graph/                 # LangGraph Workflow definitions
-│   │   │   └── nodes/             # LangGraph state nodes (Memory, Planner, specialists)
-│   │   ├── agents/                # AI Agents Prompt logic (Analyst, Vision, Reflector)
-│   │   ├── knowledge/             # WHO and BIS specifications reference sheets
-│   │   ├── models/                # DB Models & API Pydantic schemas
-│   │   ├── services/              # Gemini, VisionProvider, & DB services
-│   │   ├── utils/                 # Water scoring calculations engine
-│   │   └── api/                   # REST endpoint routers
-│   ├── requirements.txt           # Python backend packages
-│   └── .env.example               # Backend environment templates
-│
-├── frontend/                      # React Frontend (Vite)
+│   │   ├── main.py         # FastAPI Gateway entrypoint
+│   │   ├── config.py       # Pydantic Settings env loader
+│   │   ├── graph/          # LangGraph definitions
+│   │   ├── agents/         # AI Agent system prompts
+│   │   ├── models/         # SQLAlchemy DB models & Pydantic schemas
+│   │   ├── services/       # Exporters, auth, database services
+│   │   ├── utils/          # Python WQI calculation engine
+│   │   └── api/            # Route controllers (auth, chat, reports)
+│   ├── requirements.txt    # Python backend packages
+│   └── .env.example        # Environment variables template
+├── frontend/
 │   ├── src/
-│   │   ├── components/            # Shared UI widgets (Sidebar)
-│   │   └── pages/                 # Routing pages (Dashboard, Chat, etc.)
-│   ├── package.json
-│   └── tailwind.config.js
-│
-├── ARCHITECTURE.md                # Systems Architecture Specification
-├── PROJECT_PROGRESS.md            # Work Tracker milestones list
-└── README.md                      # General documentation
+│   │   ├── components/     # UI widgets (Sidebar)
+│   │   └── pages/          # Pages (Dashboard, Chat, Report Hub, Login)
+│   ├── nginx.conf          # Nginx reverse proxy configuration
+│   └── Dockerfile          # Frontend compilation dockerfile
+├── docker-compose.yml      # Containerized database & backend cluster
+├── ARCHITECTURE.md         # Detailed systems design specifications
+├── DEPLOYMENT.md           # Deployment manual (Render, Vercel, Postgres)
+├── CONTRIBUTING.md         # Contribution guidelines
+├── SECURITY.md             # Security policies & reporting channels
+├── CHANGELOG.md            # Versions history log
+└── README.md               # Home documentation page
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-* Python 3.10+
-* Node.js & NPM (or Anaconda)
-
-### 1. Backend Setup
-1. Navigate to the `backend/` directory:
-   ```bash
-   cd backend
-   ```
-2. Set up virtual environment and install packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Copy environment settings and configure database/Gemini key:
-   ```bash
-   copy .env.example .env
-   ```
-4. Run migrations:
-   ```bash
-   alembic upgrade head
-   ```
-5. Start the FastAPI development server:
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-   * Swagger Documentation: `http://localhost:8000/docs`
-   * Health endpoint: `http://localhost:8000/health`
+### 1. Backend Setup (.env config)
+Navigate to `/backend`, set up a virtual environment, and load variables:
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate      # Windows
+source venv/bin/activate    # Linux/macOS
+pip install -r requirements.txt
+copy .env.example .env      # Set actual keys or 'placeholder_key' for mock runs
+alembic upgrade head
+uvicorn app.main:app --port 8000 --reload
+```
+* **Swagger Interface:** `http://localhost:8000/docs`
+* **Health endpoint:** `http://localhost:8000/health`
 
 ### 2. Frontend Setup
-1. Navigate to the `frontend/` directory:
-   ```bash
-   cd frontend
-   ```
-2. Install NPM packages:
-   ```bash
-   npm install
-   ```
-3. Start Vite dev server:
-   ```bash
-   npm run dev
-   ```
-4. Access dashboard in browser: `http://localhost:5173`
+Navigate to `/frontend`, install packages, and boot the Vite compiler:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+* Served locally at `http://localhost:5173`
+
+### 3. Containerized Run (Docker Compose)
+Build and run the entire stack (FastAPI, React, Nginx, Postgres):
+```bash
+docker compose up --build
+```
 
 ---
 
-## 🧪 Running Automated Tests
-The platform includes automated scenarios covering safe water, high TDS, pH limits deviations, image contaminants (algae, plastics, oil, foam), combined image+TDS, and unsupported files:
-```bash
-# Chemical & Orchestration Node Tests (Milestone 3)
-python backend/app/scratch/test_milestone3.py
+## ☁️ Production Deployment Matrix
 
-# Vision Provider & Multi-Agent Tests (Milestone 4)
-python backend/app/tests/test_milestone4.py
-```
+* **Backend Services:** Deploy on **Render** or **Railway** (Set `APP_ENV=production` and configure PostgreSQL DB string).
+* **Frontend Services:** Deploy on **Vercel** or **Netlify** (Add rewrite rules mapping `/api` endpoints).
+* **Database Volumes:** Deploy on **Render PostgreSQL** or AWS RDS instances.
+
+For step-by-step instructions, see [DEPLOYMENT.md](file:///e:/Projects/AquaSentinel-AI-main/DEPLOYMENT.md).
+
+---
+
+## 📜 License & Author
+
+Distributed under the **MIT License**. Created and maintained by **Shlok Dwivedi** for the **IBM SkillsBuild AI Internship**.
