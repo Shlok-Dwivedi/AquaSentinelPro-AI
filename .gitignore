@@ -42,3 +42,15 @@ backend/aquasentinel.db
 *.pdf
 backend/*.pdf
 
+# Local Uploads and media
+uploads/
+backend/uploads/
+
+# Generated Reports
+static/reports/
+backend/static/reports/
+
+# Log folders
+logs/
+backend/logs/
+
