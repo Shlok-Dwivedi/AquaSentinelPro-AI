@@ -35,7 +35,7 @@ const Analysis = ({ session }) => {
     });
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/chat/message', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/chat/message`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session?.access_token}`

@@ -62,7 +62,7 @@ function App() {
       setIsCheckingProfile(true);
       
       try {
-        const response = await fetch('http://localhost:8000/api/v1/auth/me', {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/auth/me`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`
           }
