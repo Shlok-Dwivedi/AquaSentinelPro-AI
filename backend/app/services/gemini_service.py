@@ -21,7 +21,7 @@ else:
 def call_structured_gemini(prompt: str, response_schema: type, system_instruction: str = None) -> dict:
     """Calls Gemini 2.5 Flash to return a structured JSON response matching the response_schema."""
     if not is_gemini_available:
-        return get_mock_fallback(prompt, response_schema)
+        raise ValueError("Gemini API key is missing or unconfigured. Please check your environment variables.")
         
     try:
         model_name = 'gemini-flash-latest'
@@ -50,8 +50,8 @@ def call_structured_gemini(prompt: str, response_schema: type, system_instructio
             
         return json.loads(text.strip())
     except Exception as e:
-        logger.error(f"Error calling Gemini: {e}. Falling back to mock data.")
-        return get_mock_fallback(prompt, response_schema)
+        logger.error(f"Error calling Gemini: {e}")
+        raise
 
 def get_mock_fallback(prompt: str, schema_class: type) -> dict:
     """Returns static mock payloads matching agent Pydantic schemas for offline testing."""

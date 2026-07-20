@@ -1,24 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Sparkles, AlertCircle, CheckCircle2, Image as ImageIcon, X, Upload } from 'lucide-react';
 
-const Chat = ({ session }) => {
-  const [messages, setMessages] = useState(() => {
-    const saved = sessionStorage.getItem('chat_messages');
-    if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: 'welcome',
-        role: 'assistant',
-        content: "Hello! I am AquaSentinel AI. I can analyze your water safety parameters, cross-validate against WHO/BIS specifications, and evaluate image uploads for visible contaminants (algae, plastic, oil, foam). Try uploading an image or entering your water parameters!",
-        timeline: null
-      }
-    ];
-  });
+const Chat = ({ session, messages, setMessages, isLoading, setIsLoading, statusMessage, setStatusMessage }) => {
   const [inputValue, setInputValue] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("Running Multi-Agent Pipeline...");
   const [isDragOver, setIsDragOver] = useState(false);
   
   const messagesEndRef = useRef(null);
@@ -30,7 +16,6 @@ const Chat = ({ session }) => {
 
   useEffect(() => {
     scrollToBottom();
-    sessionStorage.setItem('chat_messages', JSON.stringify(messages));
   }, [messages, isLoading, statusMessage]);
 
   // Helper to parse parameters dynamically from user text to assist API routing
@@ -165,6 +150,11 @@ const Chat = ({ session }) => {
       }
 
       if (!finalData) throw new Error("No final result received from stream");
+      
+      if (finalData.error) {
+        throw new Error(finalData.error);
+      }
+      
       const data = finalData;
       
       // Build visual timeline checklist based on executed agents
@@ -191,17 +181,23 @@ const Chat = ({ session }) => {
       setMessages(prev => [...prev, {
         id: data.message_id || String(Date.now() + 1),
         role: 'assistant',
-        content: data.synthesized_response,
+        content: data.synthesized_response || "Analysis complete.",
         timeline: timeline,
         duration: data.agent_execution?.execution_duration_ms
       }]);
 
     } catch (err) {
       console.error(err);
+      
+      let errorMsg = err.message || "Please check your connection.";
+      if (errorMsg.toLowerCase().includes("quota") || errorMsg.toLowerCase().includes("429")) {
+        errorMsg = "Your Gemini API quota has been exceeded. New analyses are temporarily paused, but your dashboard and previous logs remain fully accessible.";
+      }
+      
       setMessages(prev => [...prev, {
         id: String(Date.now() + 1),
         role: 'assistant',
-        content: "❌ **Failed to connect to the AquaSentinel-AI pipeline.** Please check if your FastAPI server is running."
+        content: `❌ **Failed to execute analysis.** \n\n${errorMsg}`
       }]);
     } finally {
       setIsLoading(false);

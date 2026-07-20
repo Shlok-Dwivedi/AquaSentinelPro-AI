@@ -20,6 +20,18 @@ function App() {
   const [authScreen, setAuthScreen] = useState('login'); // 'login', 'register'
   const [currentPage, setCurrentPage] = useState('dashboard');
 
+  const [chatMessages, setChatMessages] = useState(() => {
+    const saved = sessionStorage.getItem('chat_messages');
+    if (saved) return JSON.parse(saved);
+    return [];
+  });
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [chatStatusMessage, setChatStatusMessage] = useState("Running Multi-Agent Pipeline...");
+
+  useEffect(() => {
+    sessionStorage.setItem('chat_messages', JSON.stringify(chatMessages));
+  }, [chatMessages]);
+
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -125,7 +137,15 @@ function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard': return <Dashboard session={session} setCurrentPage={setCurrentPage} />;
-      case 'chat': return <Chat session={session} />;
+      case 'chat': return <Chat 
+                      session={session} 
+                      messages={chatMessages}
+                      setMessages={setChatMessages}
+                      isLoading={isChatLoading}
+                      setIsLoading={setIsChatLoading}
+                      statusMessage={chatStatusMessage}
+                      setStatusMessage={setChatStatusMessage}
+                    />;
       case 'analysis': return <Analysis session={session} />;
       case 'reports': return <Reports session={session} />;
       case 'complaints': return <Complaints session={session} />;

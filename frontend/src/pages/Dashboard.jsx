@@ -20,43 +20,29 @@ const Dashboard = ({ session, setCurrentPage }) => {
 
   const token = session?.access_token;
 
-  const fetchDashboardData = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/analysis/dashboard', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDashboardData(data);
-      }
-    } catch (err) {
-      console.error('Failed to load dashboard metrics:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    // 1. Health check connection status
-    fetch('http://localhost:8000/health')
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error('Network offline');
-      })
-      .then((data) => {
-        if (data.status === 'healthy') {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/v1/analysis/dashboard', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setDashboardData(data);
           setBackendStatus('connected');
         } else {
           setBackendStatus('failed');
         }
-      })
-      .catch(() => {
+      } catch (err) {
+        console.error('Failed to load dashboard metrics:', err);
         setBackendStatus('failed');
-      });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    // 2. Fetch user analytics
     if (token) {
       fetchDashboardData();
     } else {
