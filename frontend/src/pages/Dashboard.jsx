@@ -9,15 +9,16 @@ import {
   ShieldCheck, 
   Loader2, 
   FileText, 
-  TrendingUp 
+  TrendingUp,
+  HelpCircle 
 } from 'lucide-react';
 
-const Dashboard = () => {
+const Dashboard = ({ session, setCurrentPage }) => {
   const [backendStatus, setBackendStatus] = useState('loading'); // 'loading', 'connected', 'failed'
   const [dashboardData, setDashboardData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const token = localStorage.getItem('token');
+  const token = session?.access_token;
 
   const fetchDashboardData = async () => {
     try {
@@ -200,6 +201,15 @@ const Dashboard = () => {
           </div>
         </>
       )}
+
+      {/* Floating Action Button for Guide */}
+      <button 
+        onClick={() => setCurrentPage('guide')}
+        className="fixed bottom-8 right-8 p-4 bg-aqua-600 hover:bg-aqua-500 text-white rounded-full shadow-2xl hover:shadow-aqua-600/40 transition-all active:scale-95 z-50 flex items-center justify-center border-2 border-aqua-400"
+        title="How to use AquaSentinel"
+      >
+        <HelpCircle size={28} />
+      </button>
     </div>
   );
 };
