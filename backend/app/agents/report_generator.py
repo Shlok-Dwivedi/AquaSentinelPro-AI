@@ -4,7 +4,6 @@ from datetime import datetime
 from pydantic import BaseModel
 from typing import List
 from app.models.agent_schemas import WaterAssessmentReport
-from app.models.db_models import Report
 from app.services.report_generator import JSONExporter, MarkdownExporter, PDFExporter, REPORTS_DIR
 from app.services.gemini_service import call_structured_gemini
 
@@ -26,7 +25,7 @@ def generate_water_report(
     agent_outputs: dict,
     executed_agents: list,
     db
-) -> Report:
+) -> dict:
     """Generates structured report details, calls Gemini for the summary, compiles MD/JSON/PDF, and saves to database."""
     water_out = agent_outputs.get("water_analysis") or {}
     vision_out = agent_outputs.get("vision_analysis") or {}
@@ -98,20 +97,19 @@ Your Task:
     pdf_path = PDFExporter().export(report_obj, REPORTS_DIR)
     
     # Save Report record in database
-    db_report = Report(
-        id=report_id,
-        user_id=user_id,
-        agent_execution_log_id=execution_log_id,
-        title=report_title,
-        pdf_path=pdf_path,
-        markdown_path=md_path,
-        json_path=json_path,
-        summary=report_obj.executive_summary
-    )
+    db_report = {
+        "id": report_id,
+        "user_id": user_id,
+        "agent_execution_log_id": execution_log_id,
+        "title": report_title,
+        "pdf_path": pdf_path,
+        "markdown_path": md_path,
+        "json_path": json_path,
+        "summary": report_obj.executive_summary
+    }
     
-    db.add(db_report)
-    db.commit()
-    db.refresh(db_report)
+    from app.crud.report_crud import insert_report
+    final_report = insert_report(db, db_report)
     
     logger.info(f"Report record {report_id} successfully stored in database.")
-    return db_report
+    return final_report

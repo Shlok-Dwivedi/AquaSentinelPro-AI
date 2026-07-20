@@ -1,11 +1,10 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from typing import Dict, Any, List
-from app.services.db_service import get_db
+from supabase import Client
+from app.services.db_service import get_supabase
 from app.services.auth_service import get_current_user
-from app.models.db_models import User, Report, AgentExecutionLog, ChatSession, ChatMessage
+from app.crud.analysis_crud import get_dashboard_stats
 
 logger = logging.getLogger("aquasentinel")
 
@@ -13,64 +12,56 @@ router = APIRouter(prefix="/analysis", tags=["Analysis"])
 
 @router.get("/dashboard")
 async def get_user_dashboard(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
     """Retrieves authenticated user dashboard statistics, analytics, and chronologically unified recent activities."""
+    user_id = current_user["id"]
+    
     # 1. Fetch count stats
-    total_reports = db.query(Report).filter(Report.user_id == current_user.id).count()
-    
-    # Query logs executed for this user (join chat messages and sessions to map to user_id)
-    execution_logs_query = db.query(AgentExecutionLog).join(
-        ChatMessage, AgentExecutionLog.chat_message_id == ChatMessage.id
-    ).join(
-        ChatSession, ChatMessage.session_id == ChatSession.id
-    ).filter(
-        ChatSession.user_id == current_user.id
-    )
-    
-    total_analyses = execution_logs_query.filter(AgentExecutionLog.water_score != None).count()
-    images_analyzed = execution_logs_query.filter(AgentExecutionLog.image_filename != None).count()
+    data = get_dashboard_stats(supabase, user_id)
+    total_reports = data["total_reports"]
+    sessions_data = data["sessions_data"]
+    logs_data = data["logs_data"]
+    reports_records = data["reports_records"]
+        
+    total_analyses = len([l for l in logs_data if l.get("water_score") is not None])
+    images_analyzed = len([l for l in logs_data if l.get("image_filename") is not None])
     
     # Average Water Quality Score
-    avg_score_res = execution_logs_query.with_entities(
-        func.avg(AgentExecutionLog.water_score)
-    ).first()
-    avg_score = round(avg_score_res[0], 1) if avg_score_res and avg_score_res[0] is not None else 100.0
+    scores = [l.get("water_score") for l in logs_data if l.get("water_score") is not None]
+    avg_score = round(sum(scores) / len(scores), 1) if scores else 100.0
     
     # 2. Previous analyses (mapped from trace logs)
-    analyses_records = execution_logs_query.order_by(AgentExecutionLog.created_at.desc()).limit(10).all()
     previous_analyses = []
-    for log in analyses_records:
-        water_out = log.final_outputs_json.get("water_analysis", {}) if log.final_outputs_json else {}
+    for log in logs_data[:10]:
+        water_out = log.get("final_outputs_json", {}).get("water_analysis", {}) if log.get("final_outputs_json") else {}
         if water_out:
             previous_analyses.append({
-                "log_id": log.id,
-                "score": log.water_score or 100.0,
+                "log_id": log["id"],
+                "score": log.get("water_score") or 100.0,
                 "risk_level": water_out.get("risk_level", "Low"),
                 "safety": water_out.get("drinking_safety", "Safe"),
-                "contaminants": log.plan_json.get("selected_agents", []) if log.plan_json else [],
-                "created_at": log.created_at.isoformat()
+                "contaminants": log.get("plan_json", {}).get("selected_agents", []) if log.get("plan_json") else [],
+                "created_at": log["created_at"]
             })
 
     # 3. Previous reports list
-    reports_records = db.query(Report).filter(Report.user_id == current_user.id).order_by(Report.created_at.desc()).limit(10).all()
     previous_reports = [
         {
-            "id": r.id,
-            "title": r.title,
-            "summary": r.summary,
-            "created_at": r.created_at.isoformat()
+            "id": r["id"],
+            "title": r["title"],
+            "summary": r["summary"],
+            "created_at": r["created_at"]
         } for r in reports_records
     ]
 
     # 4. Chat history (sessions list)
-    sessions_records = db.query(ChatSession).filter(ChatSession.user_id == current_user.id).order_by(ChatSession.created_at.desc()).limit(5).all()
     chat_history = [
         {
-            "session_id": s.id,
-            "created_at": s.created_at.isoformat()
-        } for s in sessions_records
+            "session_id": s["id"],
+            "created_at": s["created_at"]
+        } for s in sorted(sessions_data, key=lambda x: x["created_at"], reverse=True)[:5]
     ]
 
     # 5. Compiled Recent Activity Feed
@@ -79,23 +70,23 @@ async def get_user_dashboard(
     for r in reports_records[:5]:
         recent_activity.append({
             "type": "report",
-            "message": f"Compiled report '{r.title}'",
-            "timestamp": r.created_at.isoformat()
+            "message": f"Compiled report '{r['title']}'",
+            "timestamp": r["created_at"]
         })
     # Merge image analyses
-    image_records = execution_logs_query.filter(AgentExecutionLog.image_filename != None).order_by(AgentExecutionLog.created_at.desc()).limit(5).all()
+    image_records = [l for l in logs_data if l.get("image_filename") is not None][:5]
     for img in image_records:
         recent_activity.append({
             "type": "vision",
-            "message": f"Analyzed uploaded image '{img.image_filename}' for contamination",
-            "timestamp": img.created_at.isoformat()
+            "message": f"Analyzed uploaded image '{img['image_filename']}' for contamination",
+            "timestamp": img["created_at"]
         })
     # Merge parameters logs
-    for log in analyses_records[:5]:
+    for log in logs_data[:5]:
         recent_activity.append({
             "type": "analysis",
-            "message": f"Evaluated chemical logs (Score: {log.water_score or 100})",
-            "timestamp": log.created_at.isoformat()
+            "message": f"Evaluated chemical logs (Score: {log.get('water_score') or 100})",
+            "timestamp": log["created_at"]
         })
         
     # Sort unified activity chronologically descending

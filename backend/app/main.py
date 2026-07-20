@@ -1,16 +1,22 @@
 import logging
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from app.config import settings
-from app.services.db_service import init_db
 from app.api import chat, analysis, complaints, reports, auth, monitoring
 from app.utils.logger import setup_logging
 
 # Configure structured rotating logs
 setup_logging()
 logger = logging.getLogger("aquasentinel")
+
+# Initialize Rate Limiter
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 # Ensure static directories exist
 os.makedirs("static/reports", exist_ok=True)
@@ -20,6 +26,10 @@ app = FastAPI(
     description="Backend API for multi-agent water quality and safety platform (UN SDG 6)",
     version="1.0.0"
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # Configure CORS middleware
 origins = [org.strip() for org in settings.CORS_ORIGINS.split(",") if org.strip()]
@@ -40,12 +50,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Startup database initialization
 @app.on_event("startup")
 def on_startup():
-    logger.info("Initializing database schema...")
-    try:
-        init_db()
-        logger.info("Database schema initialized successfully.")
-    except Exception as e:
-        logger.error(f"Error during database initialization: {e}")
+    logger.info("Initializing app...")
+    pass
 
 # Health check endpoint
 @app.get("/health")

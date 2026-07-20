@@ -2,10 +2,10 @@ import time
 import psutil
 import os
 import logging
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from app.services.db_service import get_db
+from fastapi import APIRouter
+from supabase import Client
+from app.services.db_service import get_supabase_unauth
+from app.crud.monitoring_crud import check_db_health
 from app.config import settings
 
 logger = logging.getLogger("aquasentinel")
@@ -16,14 +16,11 @@ router = APIRouter(prefix="/monitoring", tags=["Monitoring"])
 START_TIME = time.time()
 
 @router.get("/health")
-def health_check(db: Session = Depends(get_db)):
+def health_check():
     """Verifies service readiness, database connectivity, and configuration states."""
-    db_status = "healthy"
-    try:
-        db.execute(text("SELECT 1"))
-    except Exception as e:
-        logger.error(f"Health check database failure: {e}")
-        db_status = "unhealthy"
+    supabase = get_supabase_unauth()
+    is_healthy = check_db_health(supabase)
+    db_status = "healthy" if is_healthy else "unhealthy"
         
     gemini_status = "unconfigured (mock fallbacks active)"
     if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY not in ["YOUR_GEMINI_API_KEY_HERE", "placeholder_key", ""]:
@@ -42,14 +39,15 @@ def health_check(db: Session = Depends(get_db)):
     }
 
 @router.get("/metrics")
-def metrics(db: Session = Depends(get_db)):
+def metrics():
     """Exposes system metrics including CPU, Memory, and DB performance parameters."""
     process = psutil.Process(os.getpid())
     memory_info = process.memory_info()
     
     # Calculate simple latency of a database check
     t_start = time.time()
-    db.execute(text("SELECT 1"))
+    supabase = get_supabase_unauth()
+    check_db_health(supabase)
     db_latency_ms = int((time.time() - t_start) * 1000)
 
     return {
