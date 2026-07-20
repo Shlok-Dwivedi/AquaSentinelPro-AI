@@ -11,6 +11,7 @@ import {
   FileText, 
   TrendingUp 
 } from 'lucide-react';
+import { API_ENDPOINTS } from '../config';
 
 const Dashboard = () => {
   const [backendStatus, setBackendStatus] = useState('loading'); // 'loading', 'connected', 'failed'
@@ -21,7 +22,7 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/v1/analysis/dashboard', {
+      const response = await fetch(API_ENDPOINTS.DASHBOARD, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -39,7 +40,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     // 1. Health check connection status
-    fetch('http://localhost:8000/health')
+    fetch(API_ENDPOINTS.HEALTH)
       .then((res) => {
         if (res.ok) return res.json();
         throw new Error('Network offline');

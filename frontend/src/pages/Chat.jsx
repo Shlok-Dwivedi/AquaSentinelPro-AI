@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Sparkles, AlertCircle, CheckCircle2, Image as ImageIcon, X, Upload } from 'lucide-react';
+import { API_ENDPOINTS } from '../config';
 
 const Chat = () => {
   const [messages, setMessages] = useState([
@@ -114,7 +115,7 @@ const Chat = () => {
       });
 
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/v1/chat/message', {
+const response = await fetch(API_ENDPOINTS.CHAT_MESSAGE, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -162,7 +163,7 @@ const Chat = () => {
       setMessages(prev => [...prev, {
         id: String(Date.now() + 1),
         role: 'assistant',
-        content: "❌ **Failed to connect to the AquaSentinel-AI pipeline.** Please check if your FastAPI server is running on `http://localhost:8000`."
+content: "❌ **Failed to connect to the AquaSentinel-AI pipeline.** Please check if your backend server is running."
       }]);
     } finally {
       setIsLoading(false);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Download, Trash2, Search, Calendar, Award, ShieldAlert, CheckCircle, Clock } from 'lucide-react';
+import { API_ENDPOINTS } from '../config';
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
@@ -13,7 +14,7 @@ const Reports = () => {
   const fetchReports = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/reports', {
+const response = await fetch(API_ENDPOINTS.REPORTS, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -36,7 +37,7 @@ const Reports = () => {
 
   const fetchReportDetails = async (id) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/reports/${id}`, {
+      const response = await fetch(API_ENDPOINTS.REPORT_DETAIL(id), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -55,7 +56,7 @@ const Reports = () => {
     if (!window.confirm('Are you sure you want to delete this water assessment report? This will remove all exported files from the server.')) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/reports/${id}`, {
+      const response = await fetch(API_ENDPOINTS.REPORT_DETAIL(id), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -75,7 +76,7 @@ const Reports = () => {
 
   const handleDownload = async (id, format) => {
     try {
-      const url = `http://localhost:8000/api/v1/reports/download/${id}/${format}`;
+      const url = API_ENDPOINTS.REPORT_DOWNLOAD(id, format);
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`

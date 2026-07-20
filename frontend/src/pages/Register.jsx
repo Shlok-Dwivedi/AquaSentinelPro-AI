@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { API_ENDPOINTS } from '../config';
 
 const Register = ({ onRegisterSuccess, switchToLogin }) => {
   const [name, setName] = useState('');
@@ -18,7 +19,7 @@ const Register = ({ onRegisterSuccess, switchToLogin }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/auth/register', {
+      const response = await fetch(API_ENDPOINTS.REGISTER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

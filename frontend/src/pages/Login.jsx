@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { API_ENDPOINTS } from '../config';
 
 const Login = ({ onLoginSuccess, switchToRegister }) => {
   const [email, setEmail] = useState('');
@@ -17,7 +18,7 @@ const Login = ({ onLoginSuccess, switchToRegister }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+      const response = await fetch(API_ENDPOINTS.LOGIN, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

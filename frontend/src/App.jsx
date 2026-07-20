@@ -8,6 +8,7 @@ import Complaints from './pages/Complaints';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import { API_ENDPOINTS } from './config';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -18,7 +19,7 @@ function App() {
   // Verify token validity on load
   useEffect(() => {
     if (token) {
-      fetch('http://localhost:8000/api/v1/auth/me', {
+      fetch(API_ENDPOINTS.ME, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -49,7 +50,7 @@ function App() {
   const handleLogout = async () => {
     if (token) {
       try {
-        await fetch('http://localhost:8000/api/v1/auth/logout', {
+        await fetch(API_ENDPOINTS.LOGOUT, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`

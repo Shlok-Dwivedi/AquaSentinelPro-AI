@@ -26,6 +26,7 @@ class TestingSettings(BaseAppSettings):
 
 class ProductionSettings(BaseAppSettings):
     APP_ENV: str = "production"
+    CORS_ORIGINS: str = "https://aquasentinel-ai.vercel.app,http://localhost:5173,http://localhost:3000"
 
 def get_settings() -> BaseAppSettings:
     """Returns the correct settings configurations class based on APP_ENV environment."""
