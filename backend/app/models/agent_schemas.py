@@ -12,7 +12,6 @@ class TaskPlan(BaseModel):
         description="The sequential list representing execution order, e.g. ['water_analysis', 'knowledge']."
     )
     is_water_image: bool = Field(
-        default=True,
         description="Set to False if an image is uploaded but it is clearly unrelated to water safety, sanitation, rivers, tanks, or tap water."
     )
 

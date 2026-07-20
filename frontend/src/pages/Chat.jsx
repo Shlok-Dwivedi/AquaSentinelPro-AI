@@ -1,19 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Sparkles, AlertCircle, CheckCircle2, Image as ImageIcon, X, Upload } from 'lucide-react';
 
-const Chat = () => {
-  const [messages, setMessages] = useState([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: "Hello! I am AquaSentinel AI. I can analyze your water safety parameters, cross-validate against WHO/BIS specifications, and evaluate image uploads for visible contaminants (algae, plastic, oil, foam). Try uploading an image or entering your water parameters!",
-      timeline: null
-    }
-  ]);
+const Chat = ({ session, messages, setMessages, isLoading, setIsLoading, statusMessage, setStatusMessage }) => {
   const [inputValue, setInputValue] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   
   const messagesEndRef = useRef(null);
@@ -25,7 +16,7 @@ const Chat = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isLoading]);
+  }, [messages, isLoading, statusMessage]);
 
   // Helper to parse parameters dynamically from user text to assist API routing
   const extractParameters = (text) => {
@@ -90,6 +81,7 @@ const Chat = () => {
     setSelectedImage(null);
     setImagePreview(null);
     setIsLoading(true);
+    setStatusMessage("Connecting to Agents...");
 
     // Append user message
     setMessages(prev => [...prev, {
@@ -113,7 +105,7 @@ const Chat = () => {
         formData.append(key, val);
       });
 
-      const token = localStorage.getItem('token');
+      const token = session?.access_token;
       const response = await fetch('http://localhost:8000/api/v1/chat/message', {
         method: 'POST',
         headers: {
@@ -126,7 +118,44 @@ const Chat = () => {
         throw new Error('Server returned an error');
       }
 
-      const data = await response.json();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let streamData = "";
+      let finalData = null;
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        streamData += decoder.decode(value, { stream: true });
+        
+        const lines = streamData.split('\n\n');
+        streamData = lines.pop(); // keep incomplete chunk
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.substring(6);
+            try {
+              const dataObj = JSON.parse(dataStr);
+              if (dataObj.type === 'status') {
+                 setStatusMessage(dataObj.message);
+              } else if (dataObj.type === 'result') {
+                 finalData = dataObj.data;
+              }
+            } catch (e) {
+              console.error("Failed to parse SSE data:", dataStr);
+            }
+          }
+        }
+      }
+
+      if (!finalData) throw new Error("No final result received from stream");
+      
+      if (finalData.error) {
+        throw new Error(finalData.error);
+      }
+      
+      const data = finalData;
       
       // Build visual timeline checklist based on executed agents
       const plan = data.agent_execution?.plan || [];
@@ -152,17 +181,23 @@ const Chat = () => {
       setMessages(prev => [...prev, {
         id: data.message_id || String(Date.now() + 1),
         role: 'assistant',
-        content: data.synthesized_response,
+        content: data.synthesized_response || "Analysis complete.",
         timeline: timeline,
         duration: data.agent_execution?.execution_duration_ms
       }]);
 
     } catch (err) {
       console.error(err);
+      
+      let errorMsg = err.message || "Please check your connection.";
+      if (errorMsg.toLowerCase().includes("quota") || errorMsg.toLowerCase().includes("429")) {
+        errorMsg = "Your Gemini API quota has been exceeded. New analyses are temporarily paused, but your dashboard and previous logs remain fully accessible.";
+      }
+      
       setMessages(prev => [...prev, {
         id: String(Date.now() + 1),
         role: 'assistant',
-        content: "❌ **Failed to connect to the AquaSentinel-AI pipeline.** Please check if your FastAPI server is running on `http://localhost:8000`."
+        content: `❌ **Failed to execute analysis.** \n\n${errorMsg}`
       }]);
     } finally {
       setIsLoading(false);
@@ -382,7 +417,7 @@ const Chat = () => {
               </div>
               <div className="max-w-[70%] p-5 rounded-2xl bg-slate-900/60 border border-slate-800 text-slate-400 flex items-center gap-3">
                 <Loader2 size={16} className="animate-spin text-aqua-400" />
-                <span className="text-sm font-semibold tracking-wide animate-pulse">Running Multi-Agent Vision Pipeline...</span>
+                <span className="text-sm font-semibold tracking-wide animate-pulse">{statusMessage}</span>
               </div>
             </div>
           )}

@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Download, Trash2, Search, Calendar, Award, ShieldAlert, CheckCircle, Clock } from 'lucide-react';
 
-const Reports = () => {
+const Reports = ({ session }) => {
   const [reports, setReports] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const token = localStorage.getItem('token');
+  const token = session?.access_token;
 
   const fetchReports = async () => {
     setIsLoading(true);

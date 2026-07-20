@@ -1,19 +1,19 @@
-import os
-import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
 from typing import List
-from app.services.db_service import get_db
+from supabase import Client
+from app.services.db_service import get_supabase
 from app.services.auth_service import get_current_user
-from app.models.db_models import Report, User, AgentExecutionLog
 from app.agents.report_generator import generate_water_report
+from app.crud.report_crud import get_execution_log, get_user_reports, get_report_by_id, delete_report as crud_delete_report
+from pydantic import BaseModel
+import os
+import logging
 
 logger = logging.getLogger("aquasentinel")
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
-from pydantic import BaseModel
 class ManualExportRequest(BaseModel):
     execution_log_id: str
     session_id: str
@@ -21,87 +21,87 @@ class ManualExportRequest(BaseModel):
 @router.post("/export")
 async def export_report_manually(
     req: ManualExportRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
     """Exports a report manually from a past execution log."""
-    log = db.query(AgentExecutionLog).filter(AgentExecutionLog.id == req.execution_log_id).first()
+    log = get_execution_log(supabase, req.execution_log_id)
     if not log:
         raise HTTPException(status_code=404, detail="Execution log trace not found.")
         
     try:
         db_report = generate_water_report(
-            user_id=current_user.id,
+            user_id=current_user["id"],
             chat_session_id=req.session_id,
-            execution_log_id=log.id,
-            agent_outputs=log.final_outputs_json or {},
-            executed_agents=log.plan_json.get("selected_agents", []) if log.plan_json else [],
-            db=db
+            execution_log_id=log["id"],
+            agent_outputs=log.get("final_outputs_json") or {},
+            executed_agents=log.get("plan_json", {}).get("selected_agents", []) if log.get("plan_json") else [],
+            db=supabase
         )
         return {
-            "report_id": db_report.id,
-            "title": db_report.title,
-            "pdf_url": f"/api/v1/reports/download/{db_report.id}/pdf",
-            "summary": db_report.summary
+            "report_id": db_report["id"],
+            "title": db_report["title"],
+            "pdf_url": f"/api/v1/reports/download/{db_report['id']}/pdf",
+            "summary": db_report["summary"]
         }
     except Exception as e:
         logger.error(f"Manual report generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate report: {e}")
 
 @router.get("")
-async def get_user_reports(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+async def get_user_reports_api(
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
     """Fetches historical reports for the authenticated user."""
-    reports = db.query(Report).filter(Report.user_id == current_user.id).order_by(Report.created_at.desc()).all()
+    reports = get_user_reports(supabase, current_user["id"])
     return [
         {
-            "id": r.id,
-            "title": r.title,
-            "summary": r.summary,
-            "pdf_url": f"/api/v1/reports/download/{r.id}/pdf",
-            "markdown_url": f"/api/v1/reports/download/{r.id}/markdown",
-            "json_url": f"/api/v1/reports/download/{r.id}/json",
-            "created_at": r.created_at.isoformat()
+            "id": r["id"],
+            "title": r["title"],
+            "summary": r["summary"],
+            "pdf_url": f"/api/v1/reports/download/{r['id']}/pdf",
+            "markdown_url": f"/api/v1/reports/download/{r['id']}/markdown",
+            "json_url": f"/api/v1/reports/download/{r['id']}/json",
+            "created_at": r["created_at"]
         } for r in reports
     ]
 
 @router.get("/{report_id}")
 async def get_report_details(
     report_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
     """Retrieves full details of a specific report by ID."""
-    report = db.query(Report).filter(Report.id == report_id, Report.user_id == current_user.id).first()
+    report = get_report_by_id(supabase, report_id, current_user["id"])
     if not report:
         raise HTTPException(status_code=404, detail="Report not found or access denied.")
         
     return {
-        "id": report.id,
-        "title": report.title,
-        "summary": report.summary,
-        "pdf_url": f"/api/v1/reports/download/{report.id}/pdf",
-        "markdown_url": f"/api/v1/reports/download/{report.id}/markdown",
-        "json_url": f"/api/v1/reports/download/{report.id}/json",
-        "created_at": report.created_at.isoformat(),
-        "execution_log_id": report.agent_execution_log_id
+        "id": report["id"],
+        "title": report["title"],
+        "summary": report["summary"],
+        "pdf_url": f"/api/v1/reports/download/{report['id']}/pdf",
+        "markdown_url": f"/api/v1/reports/download/{report['id']}/markdown",
+        "json_url": f"/api/v1/reports/download/{report['id']}/json",
+        "created_at": report["created_at"],
+        "execution_log_id": report["agent_execution_log_id"]
     }
 
 @router.delete("/{report_id}")
 async def delete_report(
     report_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
     """Deletes a report record from the database and removes files from disk."""
-    report = db.query(Report).filter(Report.id == report_id, Report.user_id == current_user.id).first()
+    report = get_report_by_id(supabase, report_id, current_user["id"])
     if not report:
         raise HTTPException(status_code=404, detail="Report not found or access denied.")
         
     # Delete disk files
-    for filepath in [report.pdf_path, report.markdown_path, report.json_path]:
+    for filepath in [report.get("pdf_path"), report.get("markdown_path"), report.get("json_path")]:
         if filepath and os.path.exists(filepath):
             try:
                 os.remove(filepath)
@@ -109,33 +109,32 @@ async def delete_report(
             except Exception as fe:
                 logger.error(f"Failed to delete file {filepath}: {fe}")
                 
-    db.delete(report)
-    db.commit()
+    crud_delete_report(supabase, report_id, current_user["id"])
     return {"message": "Report successfully deleted."}
 
 @router.get("/download/{report_id}/{file_format}")
 async def download_report_file(
     report_id: str,
     file_format: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
     """Downloads a specific format of the water assessment report (PDF, Markdown, or JSON)."""
-    report = db.query(Report).filter(Report.id == report_id, Report.user_id == current_user.id).first()
+    report = get_report_by_id(supabase, report_id, current_user["id"])
     if not report:
         raise HTTPException(status_code=404, detail="Report not found or access denied.")
         
     # Map formats
     if file_format == "pdf":
-        filepath = report.pdf_path
+        filepath = report.get("pdf_path")
         media_type = "application/pdf"
         suffix = "pdf"
     elif file_format == "markdown":
-        filepath = report.markdown_path
+        filepath = report.get("markdown_path")
         media_type = "text/markdown"
         suffix = "md"
     elif file_format == "json":
-        filepath = report.json_path
+        filepath = report.get("json_path")
         media_type = "application/json"
         suffix = "json"
     else:

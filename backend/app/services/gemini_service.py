@@ -21,10 +21,10 @@ else:
 def call_structured_gemini(prompt: str, response_schema: type, system_instruction: str = None) -> dict:
     """Calls Gemini 2.5 Flash to return a structured JSON response matching the response_schema."""
     if not is_gemini_available:
-        return get_mock_fallback(prompt, response_schema)
+        raise ValueError("Gemini API key is missing or unconfigured. Please check your environment variables.")
         
     try:
-        model_name = 'gemini-2.5-flash'
+        model_name = 'gemini-flash-latest'
         
         # Configure model parameters
         config = genai.GenerationConfig(
@@ -39,10 +39,19 @@ def call_structured_gemini(prompt: str, response_schema: type, system_instructio
         )
         
         response = model.generate_content(prompt, generation_config=config)
-        return json.loads(response.text)
+        
+        text = response.text.strip()
+        if text.startswith('```json'):
+            text = text[7:]
+        elif text.startswith('```'):
+            text = text[3:]
+        if text.endswith('```'):
+            text = text[:-3]
+            
+        return json.loads(text.strip())
     except Exception as e:
-        logger.error(f"Error calling Gemini: {e}. Falling back to mock data.")
-        return get_mock_fallback(prompt, response_schema)
+        logger.error(f"Error calling Gemini: {e}")
+        raise
 
 def get_mock_fallback(prompt: str, schema_class: type) -> dict:
     """Returns static mock payloads matching agent Pydantic schemas for offline testing."""
@@ -195,6 +204,12 @@ def get_mock_fallback(prompt: str, schema_class: type) -> dict:
             "is_valid": True,
             "safety_violations": [],
             "refinement_instructions": None
+        }
+        
+    elif schema_name == "SummaryDraft":
+        return {
+            "executive_summary": "Water assessment report compiled. Testing parameters show moderate variations. Please review the specific metrics below.",
+            "recommendations": ["Filter water before consumption.", "Re-test parameters periodically."]
         }
         
     return {}

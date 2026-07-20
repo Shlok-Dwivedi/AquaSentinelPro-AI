@@ -23,7 +23,8 @@ def run_vision_analyst(image_path: str) -> VisionAnalysisResult:
     if not image_path:
         raise ValueError("Image path is required for Vision Analysis.")
         
-    if not os.path.exists(image_path):
+    is_url = image_path.startswith("http://") or image_path.startswith("https://")
+    if not is_url and not os.path.exists(image_path):
         raise FileNotFoundError(f"Image file not found: {image_path}")
         
     # Validate extension

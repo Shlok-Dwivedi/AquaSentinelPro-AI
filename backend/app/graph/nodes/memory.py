@@ -1,6 +1,7 @@
 import logging
 from app.graph.state import AgentState
-from app.services.db_service import SessionLocal, load_user_memory_context
+from app.services.db_service import get_supabase_unauth
+from app.crud.user_crud import load_user_memory_context
 
 logger = logging.getLogger("aquasentinel")
 
@@ -9,9 +10,9 @@ def memory_load_node(state: AgentState) -> AgentState:
     user_id = state.get("user_id", "default_user")
     logger.info(f"Loading user memory context for user_id: {user_id}")
     
-    db = SessionLocal()
     try:
-        memory_data = load_user_memory_context(db, user_id)
+        supabase = get_supabase_unauth()
+        memory_data = load_user_memory_context(supabase, user_id)
         state["user_memory"] = memory_data
         logger.info(f"Memory context loaded successfully for user_id: {user_id}")
     except Exception as e:
@@ -31,7 +32,5 @@ def memory_load_node(state: AgentState) -> AgentState:
                 "total_complaints": 0
             }
         }
-    finally:
-        db.close()
         
     return state

@@ -9,53 +9,40 @@ import {
   ShieldCheck, 
   Loader2, 
   FileText, 
-  TrendingUp 
+  TrendingUp,
+  HelpCircle 
 } from 'lucide-react';
 
-const Dashboard = () => {
+const Dashboard = ({ session, setCurrentPage }) => {
   const [backendStatus, setBackendStatus] = useState('loading'); // 'loading', 'connected', 'failed'
   const [dashboardData, setDashboardData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const token = localStorage.getItem('token');
-
-  const fetchDashboardData = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/analysis/dashboard', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDashboardData(data);
-      }
-    } catch (err) {
-      console.error('Failed to load dashboard metrics:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const token = session?.access_token;
 
   useEffect(() => {
-    // 1. Health check connection status
-    fetch('http://localhost:8000/health')
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error('Network offline');
-      })
-      .then((data) => {
-        if (data.status === 'healthy') {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/v1/analysis/dashboard', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setDashboardData(data);
           setBackendStatus('connected');
         } else {
           setBackendStatus('failed');
         }
-      })
-      .catch(() => {
+      } catch (err) {
+        console.error('Failed to load dashboard metrics:', err);
         setBackendStatus('failed');
-      });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    // 2. Fetch user analytics
     if (token) {
       fetchDashboardData();
     } else {
@@ -200,6 +187,15 @@ const Dashboard = () => {
           </div>
         </>
       )}
+
+      {/* Floating Action Button for Guide */}
+      <button 
+        onClick={() => setCurrentPage('guide')}
+        className="fixed bottom-8 right-8 p-4 bg-aqua-600 hover:bg-aqua-500 text-white rounded-full shadow-2xl hover:shadow-aqua-600/40 transition-all active:scale-95 z-50 flex items-center justify-center border-2 border-aqua-400"
+        title="How to use AquaSentinel"
+      >
+        <HelpCircle size={28} />
+      </button>
     </div>
   );
 };

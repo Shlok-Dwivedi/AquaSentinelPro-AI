@@ -18,13 +18,20 @@ class VisionProvider(ABC):
 class GeminiVisionProvider(VisionProvider):
     """Implements VisionProvider using real Gemini 2.5 Flash Vision capabilities."""
     def analyze_image(self, image_path: str, mime_type: str, prompt: str) -> VisionAnalysisResult:
-        if not os.path.exists(image_path):
+        is_url = image_path.startswith("http://") or image_path.startswith("https://")
+        if not is_url and not os.path.exists(image_path):
             raise FileNotFoundError(f"Image file not found: {image_path}")
             
         logger.info(f"GeminiVisionProvider: Loading image from {image_path} with mime_type: {mime_type}")
         
-        with open(image_path, "rb") as f:
-            image_bytes = f.read()
+        if is_url:
+            import urllib.request
+            req = urllib.request.Request(image_path, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                image_bytes = resp.read()
+        else:
+            with open(image_path, "rb") as f:
+                image_bytes = f.read()
             
         image_part = {
             "mime_type": mime_type,
@@ -32,7 +39,7 @@ class GeminiVisionProvider(VisionProvider):
         }
         
         try:
-            model = genai.GenerativeModel('gemini-2.5-flash')
+            model = genai.GenerativeModel('gemini-flash-latest')
             config = genai.GenerationConfig(
                 response_mime_type="application/json",
                 response_schema=VisionAnalysisResult,

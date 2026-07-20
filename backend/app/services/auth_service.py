@@ -1,89 +1,88 @@
-import bcrypt
-import jwt
-import hashlib
 import logging
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
-from app.services.db_service import get_db
-from app.models.db_models import User
+from supabase import Client
+import jwt
+from jwt import PyJWKClient
 from app.config import settings
+from app.services.db_service import get_supabase
+from app.crud.user_crud import get_user_by_id
 
 logger = logging.getLogger("aquasentinel")
 
-# JWT configuration settings
-SECRET_KEY = settings.SECRET_KEY
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
-REFRESH_TOKEN_EXPIRE_DAYS = settings.REFRESH_TOKEN_EXPIRE_DAYS
+SUPABASE_JWT_SECRET = getattr(settings, "SUPABASE_JWT_SECRET", settings.SECRET_KEY)
+jwks_url = f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
+jwks_client = PyJWKClient(jwks_url)
 
 security_scheme = HTTPBearer()
 
-def hash_password(password: str) -> str:
-    """Hashes a password using bcrypt."""
-    salt = bcrypt.gensalt(rounds=12)
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed.decode('utf-8')
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifies a plain password against its bcrypt hash."""
-    if not hashed_password:
-        return False
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
-
-def hash_token(token: str) -> str:
-    """Hashes a refresh token before storing it in the database for security."""
-    return hashlib.sha256(token.encode('utf-8')).hexdigest()
-
-def create_access_token(data: dict) -> str:
-    """Generates a short-lived access JWT token."""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-def create_refresh_token(data: dict) -> str:
-    """Generates a long-lived refresh JWT token."""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "refresh": True})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-def verify_token(token: str) -> Optional[dict]:
-    """Decodes and validates a JWT token."""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        logger.warning("Token verification failed: Token expired.")
-        return None
-    except jwt.InvalidTokenError:
-        logger.warning("Token verification failed: Invalid token.")
-        return None
-
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
-    db: Session = Depends(get_db)
-) -> User:
-    """Dependency to retrieve the currently logged-in user from the Bearer JWT token."""
+def verify_supabase_token(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)) -> dict:
+    """Verifies the Supabase JWT token supporting both HS256 and RS256."""
     token = credentials.credentials
-    payload = verify_token(token)
+    alg = 'Unknown'
     
-    if not payload or "sub" not in payload:
+    if not token or token == 'null' or token.count('.') != 2:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+            detail="Malformed token",
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-    user_id = payload["sub"]
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+    try:
+        unverified_header = jwt.get_unverified_header(token)
+        alg = unverified_header.get('alg', 'HS256')
+        
+        if alg == 'HS256':
+            if not SUPABASE_JWT_SECRET or SUPABASE_JWT_SECRET == settings.SECRET_KEY:
+                logger.error("WARNING: Verifying HS256 token but SUPABASE_JWT_SECRET is missing or using fallback!")
+                
+            payload = jwt.decode(
+                token, 
+                SUPABASE_JWT_SECRET, 
+                algorithms=["HS256"],
+                options={"verify_aud": False}
+            )
+        else:
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+            payload = jwt.decode(
+                token, 
+                signing_key.key, 
+                algorithms=[alg],
+                options={"verify_aud": False}
+            )
+        return payload
+    except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+            detail="Token expired",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        logger.error(f"Token Verification Error ({alg}): {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+def get_current_user(
+    payload: dict = Depends(verify_supabase_token),
+    supabase: Client = Depends(get_supabase)
+) -> dict:
+    """Dependency to retrieve the currently logged-in user's profile from public.users."""
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    user = get_user_by_id(supabase, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User profile not found. Please complete onboarding.",
         )
     return user
