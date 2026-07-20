@@ -11,7 +11,7 @@ const Complaints = ({ session }) => {
   const fetchComplaints = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/complaints', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/complaints`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -28,7 +28,7 @@ const Complaints = ({ session }) => {
 
   const handleSubmitComplaint = async (id) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/complaints/submit/${id}`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/complaints/submit/${id}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -13,7 +13,7 @@ const Reports = ({ session }) => {
   const fetchReports = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/reports', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/reports`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -36,7 +36,7 @@ const Reports = ({ session }) => {
 
   const fetchReportDetails = async (id) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/reports/${id}`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/reports/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -55,7 +55,7 @@ const Reports = ({ session }) => {
     if (!window.confirm('Are you sure you want to delete this water assessment report? This will remove all exported files from the server.')) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/reports/${id}`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/reports/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -75,7 +75,7 @@ const Reports = ({ session }) => {
 
   const handleDownload = async (id, format) => {
     try {
-      const url = `http://localhost:8000/api/v1/reports/download/${id}/${format}`;
+      const url = `${import.meta.env.VITE_BACKEND_URL}/api/v1/reports/download/${id}/${format}`;
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`

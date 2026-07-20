@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Droplet, 
-  ShieldAlert, 
-  FileCheck, 
-  Activity, 
-  Calendar, 
-  Eye, 
-  ShieldCheck, 
-  Loader2, 
-  FileText, 
+import {
+  Droplet,
+  ShieldAlert,
+  FileCheck,
+  Activity,
+  Calendar,
+  Eye,
+  ShieldCheck,
+  Loader2,
+  FileText,
   TrendingUp,
-  HelpCircle 
+  HelpCircle
 } from 'lucide-react';
 
 const Dashboard = ({ session, setCurrentPage }) => {
@@ -23,7 +23,7 @@ const Dashboard = ({ session, setCurrentPage }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/v1/analysis/dashboard', {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/analysis/dashboard`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -71,7 +71,7 @@ const Dashboard = ({ session, setCurrentPage }) => {
           <h2 className="text-3xl font-extrabold text-white tracking-tight">Main Dashboard</h2>
           <p className="text-slate-400 mt-1">Real-time water quality monitoring and multi-agent systems overview.</p>
         </div>
-        
+
         {/* Connection status banner */}
         <div>
           {backendStatus === 'connected' && (
@@ -134,7 +134,7 @@ const Dashboard = ({ session, setCurrentPage }) => {
               <h3 className="text-lg font-bold text-white mb-4 tracking-wide flex items-center gap-2">
                 <TrendingUp size={18} className="text-aqua-400" /> Recent Activities
               </h3>
-              
+
               {(!dashboardData?.recent_activity || dashboardData.recent_activity.length === 0) ? (
                 <div className="flex-1 flex items-center justify-center p-8 text-slate-500 text-sm border border-dashed border-slate-800 rounded-xl">
                   No recent safety activities recorded. Start a chat.
@@ -163,7 +163,7 @@ const Dashboard = ({ session, setCurrentPage }) => {
               <h3 className="text-lg font-bold text-white mb-4 tracking-wide flex items-center gap-2">
                 <Droplet size={18} className="text-sky-400" /> Previous Analyses
               </h3>
-              
+
               {(!dashboardData?.previous_analyses || dashboardData.previous_analyses.length === 0) ? (
                 <div className="flex-1 flex items-center justify-center p-8 text-slate-500 text-sm border border-dashed border-slate-800 rounded-xl">
                   No chemical logs saved yet.
@@ -189,7 +189,7 @@ const Dashboard = ({ session, setCurrentPage }) => {
       )}
 
       {/* Floating Action Button for Guide */}
-      <button 
+      <button
         onClick={() => setCurrentPage('guide')}
         className="fixed bottom-8 right-8 p-4 bg-aqua-600 hover:bg-aqua-500 text-white rounded-full shadow-2xl hover:shadow-aqua-600/40 transition-all active:scale-95 z-50 flex items-center justify-center border-2 border-aqua-400"
         title="How to use AquaSentinel"

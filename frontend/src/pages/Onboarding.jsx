@@ -17,7 +17,7 @@ const Onboarding = ({ session, onComplete }) => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/auth/onboard', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/auth/onboard`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
